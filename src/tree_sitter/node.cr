@@ -27,8 +27,11 @@ module TreeSitter
     # Get the node's *named* child at the given index.
     #
     # See also `#named?`
-    def named_child(index : Int32)
-      Node.new(LibTreeSitter.ts_node_named_child(to_unsafe, index))
+    def named_child(index : Int32) : Node?
+      raise IndexError.new if index < 0 || index >= named_child_count
+      node = LibTreeSitter.ts_node_named_child(to_unsafe, index)
+      return nil if LibTreeSitter.ts_node_is_null(node)
+      Node.new(node)
     end
 
     # Check if the node is *named*. Named nodes correspond to named rules in the
@@ -61,8 +64,10 @@ module TreeSitter
     end
 
     # Get the node's immediate parent.
-    def parent : Node
-      Node.new(LibTreeSitter.ts_node_parent(self))
+    def parent : Node?
+      parent_node = LibTreeSitter.ts_node_parent(self)
+      return nil if LibTreeSitter.ts_node_is_null(parent_node)
+      Node.new(parent_node)
     end
 
     # Get the node's child at the given index, where zero represents the first
@@ -73,6 +78,11 @@ module TreeSitter
       raise IndexError.new if index < 0 || index >= child_count
 
       Node.new(LibTreeSitter.ts_node_child(self, index.to_u32))
+    end
+
+    # Iterate over all children of this node.
+    def children : Iterator(Node)
+      ChildrenIterator.new(self)
     end
 
     # Get the node's type as a String.
@@ -103,16 +113,39 @@ module TreeSitter
 
     def descendant(start_byte : UInt32, end_byte : UInt32) : Node?
       ptr = LibTreeSitter.ts_node_descendant_for_byte_range(to_unsafe, start_byte, end_byte)
+      return nil if LibTreeSitter.ts_node_is_null(ptr)
       Node.new(ptr)
     end
 
     def descendant(start_point : Point, end_point : Point) : Node?
       ptr = LibTreeSitter.ts_node_descendant_for_point_range(to_unsafe, start_point, end_point)
+      return nil if LibTreeSitter.ts_node_is_null(ptr)
       Node.new(ptr)
     end
 
     def ==(other : Node) : Bool
       LibTreeSitter.ts_node_eq(self, other)
+    end
+
+    # Get the node's next sibling.
+    def next_sibling : Node?
+      node = LibTreeSitter.ts_node_next_sibling(self)
+      return nil if LibTreeSitter.ts_node_is_null(node)
+      Node.new(node)
+    end
+
+    # Get the node's previous sibling.
+    def prev_sibling : Node?
+      node = LibTreeSitter.ts_node_prev_sibling(self)
+      return nil if LibTreeSitter.ts_node_is_null(node)
+      Node.new(node)
+    end
+
+    # Get the node's child with the given field name.
+    def child_by_field_name(field_name : String) : Node?
+      node = LibTreeSitter.ts_node_child_by_field_name(self, field_name, field_name.bytesize.to_u32)
+      return nil if LibTreeSitter.ts_node_is_null(node)
+      Node.new(node)
     end
 
     # Get an S-expression representing the node as a string.
@@ -132,6 +165,26 @@ module TreeSitter
     # :nodoc:
     def to_unsafe
       @node
+    end
+  end
+
+  # Iterator for node children
+  private class ChildrenIterator
+    include Iterator(Node)
+
+    def initialize(@node : Node)
+      @index = 0
+      @count = @node.child_count
+    end
+
+    def next
+      if @index < @count
+        child = @node.child(@index)
+        @index += 1
+        child
+      else
+        stop
+      end
     end
   end
 end

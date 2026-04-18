@@ -7,8 +7,8 @@ describe TreeSitter do
     tree = parser.parse(nil, "[1, null]")
 
     root_node = tree.root_node
-    array_node = root_node.named_child(0)
-    number_node = array_node.named_child(0)
+    array_node = root_node.named_child(0).not_nil!
+    number_node = array_node.named_child(0).not_nil!
 
     root_node.type.should eq("document")
     array_node.type.should eq("array")

@@ -3,16 +3,16 @@ require "./spec_helper"
 describe TreeSitter::Node do
   it "can get node start/end points" do
     root_node = parse_json("[1,\n null]").root_node
-    array_node = root_node.named_child(0)
-    null_node = array_node.named_child(1)
+    array_node = root_node.named_child(0).not_nil!
+    null_node = array_node.named_child(1).not_nil!
     null_node.start_point.should eq({1, 1})
     null_node.end_point.should eq({1, 5})
   end
 
   it "can get node start/end byte" do
     root_node = parse_json("[1,\n null]").root_node
-    array_node = root_node.named_child(0)
-    null_node = array_node.named_child(1)
+    array_node = root_node.named_child(0).not_nil!
+    null_node = array_node.named_child(1).not_nil!
     null_node.start_byte.should eq(5)
     null_node.end_byte.should eq(9)
   end
