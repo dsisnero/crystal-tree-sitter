@@ -13,9 +13,9 @@ lib LibTreeSitter
 
   # Types
 
-  type TSStateId = LibC::UInt16T
-  type TSSymbol = LibC::UInt16T
-  type TSFieldId = LibC::UInt16T
+  type TSStateId = UInt16
+  type TSSymbol = UInt16
+  type TSFieldId = UInt16
   type TSLanguage = Void*
   type TSParser = Void*
   type TSTree = Void*
@@ -92,8 +92,8 @@ lib LibTreeSitter
 
   struct TSQueryMatch
     id : LibC::UInt32T
-    pattern_index : LibC::UInt16T
-    capture_count : LibC::UInt16T
+    pattern_index : UInt16
+    capture_count : UInt16
     captures : TSQueryCapture*
   end
 
