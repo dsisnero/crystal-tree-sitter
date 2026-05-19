@@ -244,10 +244,10 @@ lib LibTreeSitter
   #
   # If parsing takes longer than this, it will halt early, returning NULL.
   # See [`ts_parser_parse`] for more information.
-  fun ts_parser_set_timeout_micros(self : TSParser*, timeout_micros : LibC::UInt64T) : Void
+  fun ts_parser_set_timeout_micros(self : TSParser*, timeout_micros : UInt64) : Void
 
   # Get the duration in microseconds that parsing is allowed to take.
-  fun ts_parser_timeout_micros(TSParser*) : LibC::UInt64T
+  fun ts_parser_timeout_micros(TSParser*) : UInt64
 
   # Set the parser's current cancellation flag pointer.
   #
@@ -597,10 +597,10 @@ lib LibTreeSitter
   # if no such child was found.
   fun ts_tree_cursor_goto_first_child_for_byte(
     self : TSTreeCursor*, start : UInt32, end : UInt32,
-  ) : LibC::UInt64T
+  ) : UInt64
   fun ts_tree_cursor_goto_first_child_for_point(
     self : TSTreeCursor*, start : TSPoint, end : TSPoint,
-  ) : LibC::UInt64T
+  ) : UInt64
 
   fun ts_tree_cursor_copy(TSTreeCursor*) : TSTreeCursor
 
@@ -759,13 +759,13 @@ lib LibTreeSitter
   # If query execution takes longer than this, it will halt early, returning NULL.
   # See [`ts_query_cursor_next_match`] or [`ts_query_cursor_next_capture`] for more information.
   fun ts_query_cursor_set_timeout_micros(
-    self : TSQueryCursor*, timeout_micros : LibC::UInt64T,
+    self : TSQueryCursor*, timeout_micros : UInt64,
   ) : Void
 
   # Get the duration in microseconds that query execution is allowed to take.
   #
   # This is set via [`ts_query_cursor_set_timeout_micros`].
-  fun ts_query_cursor_timeout_micros(self : TSQueryCursor*) : LibC::UInt64T
+  fun ts_query_cursor_timeout_micros(self : TSQueryCursor*) : UInt64
 
   # Set the range of bytes or (row, column) positions in which the query
   # will be executed.
