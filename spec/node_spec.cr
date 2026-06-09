@@ -268,4 +268,24 @@ describe TreeSitter::Node do
       depth.should eq(0)
     end
   end
+
+  describe "CaptureQuantifier" do
+    it "has expected enum values" do
+      TreeSitter::CaptureQuantifier::Zero.value.should eq(0)
+      TreeSitter::CaptureQuantifier::One.value.should eq(3)
+    end
+  end
+
+  describe TreeSitter::Parser do
+    it "#parse_with_progress reports byte offsets" do
+      parser = TreeSitter::Parser.new("json")
+      offsets = [] of UInt32
+      tree = parser.parse_with_progress(nil, "[1, null]") { |offset|
+        offsets << offset
+      }
+      tree.should_not be_nil
+      offsets.size.should be > 0
+      offsets[0].should be_a(UInt32)
+    end
+  end
 end
