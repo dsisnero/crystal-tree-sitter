@@ -111,6 +111,45 @@ module TreeSitter
       LibTreeSitter.ts_parser_print_dot_graphs(to_unsafe, fd)
     end
 
+    def stop_printing_dot_graphs : Nil
+      LibTreeSitter.ts_parser_print_dot_graphs(to_unsafe, -1)
+    end
+
+    def included_ranges : Range::Iterator
+      ranges = LibTreeSitter.ts_parser_included_ranges(to_unsafe, out length)
+      Range::Iterator.new(ranges, length)
+    end
+
+    def set_included_ranges(ranges : Array(Range)) : Bool
+      LibTreeSitter.ts_parser_set_included_ranges(to_unsafe, ranges.to_unsafe, ranges.size.to_u32)
+    end
+
+    def set_timeout_micros(timeout_micros : UInt64) : Nil
+      LibTreeSitter.ts_parser_set_timeout_micros(to_unsafe, timeout_micros)
+    end
+
+    def timeout_micros : UInt64
+      LibTreeSitter.ts_parser_timeout_micros(to_unsafe)
+    end
+
+    def set_logger(&block : (LibTreeSitter::TSLogType, String) -> Nil) : Nil
+      payload = Box.box(block)
+      logger = LibTreeSitter::TSLogger.new
+      logger.payload = payload
+      logger.log = ->(p : Void*, type : LibTreeSitter::TSLogType, msg : LibC::Char*) do
+        callback = Box(typeof(block)).unbox(p)
+        callback.call(type, String.new(msg))
+      end
+      LibTreeSitter.ts_parser_set_logger(to_unsafe, logger)
+    end
+
+    def stop_logging : Nil
+      logger = LibTreeSitter::TSLogger.new
+      logger.payload = Pointer(Void).null
+      logger.log = ->(p : Void*, type : LibTreeSitter::TSLogType, msg : LibC::Char*) {}
+      LibTreeSitter.ts_parser_set_logger(to_unsafe, logger)
+    end
+
     # :nodoc:
     def to_unsafe
       @parser
