@@ -22,8 +22,7 @@ module TreeSitter
       if error_type.none?
         @query = query
       else
-        # FIXME: This is horrible, transform this into a set of exceptions with a nice error message.
-        raise Error.new("#{error_type} at #{error_offset}")
+        raise QueryError.from_c(error_offset, error_type)
       end
     end
 
