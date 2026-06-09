@@ -49,7 +49,7 @@ module TreeSitter
     #
     # See also `Parser#language=`.
     def abi_version : Int32
-      LibTreeSitter.ts_language_version(to_unsafe).to_i
+      LibTreeSitter.ts_language_abi_version(to_unsafe).to_i
     end
 
     def injection_regex? : Regex?
@@ -70,6 +70,75 @@ module TreeSitter
     def highlight_query : Query
       # ameba:disable Lint/NotNil
       highlight_query?.not_nil!
+    end
+
+    def field_id_for_name(name : String) : UInt16
+      LibTreeSitter.ts_language_field_id_for_name(to_unsafe, name, name.bytesize.to_u32).to_u16
+    end
+
+    def field_name_for_id(id : UInt16) : String
+      ptr = LibTreeSitter.ts_language_field_name_for_id(to_unsafe, id)
+      raise "No field name for id #{id}" if ptr.null?
+      String.new(ptr)
+    end
+
+    def symbol_name(symbol : UInt16) : String
+      ptr = LibTreeSitter.ts_language_symbol_name(to_unsafe, symbol)
+      raise "No symbol name for id #{symbol}" if ptr.null?
+      String.new(ptr)
+    end
+
+    def next_state(state : UInt16, symbol : UInt16) : UInt16
+      LibTreeSitter.ts_language_next_state(to_unsafe, state, symbol)
+    end
+
+    def state_count : UInt32
+      LibTreeSitter.ts_language_state_count(to_unsafe)
+    end
+
+    def id_for_node_kind(kind : String, named : Bool) : UInt16
+      LibTreeSitter.ts_language_symbol_for_name(to_unsafe, kind, kind.bytesize.to_u32, named).to_u16
+    end
+
+    def node_kind_is_named?(symbol : UInt16) : Bool
+      LibTreeSitter.ts_language_symbol_type(to_unsafe, symbol).regular?
+    end
+
+    def node_kind_is_visible?(symbol : UInt16) : Bool
+      !LibTreeSitter.ts_language_symbol_type(to_unsafe, symbol).auxiliary?
+    end
+
+    def node_kind_is_supertype?(symbol : UInt16) : Bool
+      LibTreeSitter.ts_language_symbol_type(to_unsafe, symbol).supertype?
+    end
+
+    def supertypes : Array(UInt16)
+      ptr = LibTreeSitter.ts_language_supertypes(to_unsafe, out length)
+      return [] of UInt16 if length == 0 || ptr.null?
+      Array(UInt16).new(length) { |i| ptr[i].to_u16 }
+    end
+
+    def subtypes_for_supertype(supertype : UInt16) : Array(UInt16)
+      ptr = LibTreeSitter.ts_language_subtypes(to_unsafe, supertype, out length)
+      return [] of UInt16 if length == 0 || ptr.null?
+      Array(UInt16).new(length) { |i| ptr[i].to_u16 }
+    end
+
+    def lookahead_iterator(state : UInt16) : LookaheadIterator
+      LookaheadIterator.new(self, state)
+    end
+
+    class Metadata
+      getter major_version : UInt8
+      getter minor_version : UInt8
+      getter patch_version : UInt8
+
+      def initialize(@major_version, @minor_version, @patch_version)
+      end
+    end
+
+    def metadata : Metadata?
+      nil
     end
 
     # :nodoc:
