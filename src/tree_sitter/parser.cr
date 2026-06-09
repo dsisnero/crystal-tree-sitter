@@ -146,7 +146,7 @@ module TreeSitter
     def stop_logging : Nil
       logger = LibTreeSitter::TSLogger.new
       logger.payload = Pointer(Void).null
-      logger.log = ->(p : Void*, type : LibTreeSitter::TSLogType, msg : LibC::Char*) {}
+      logger.log = ->(p : Void*, type : LibTreeSitter::TSLogType, msg : LibC::Char*) { }
       LibTreeSitter.ts_parser_set_logger(to_unsafe, logger)
     end
 
