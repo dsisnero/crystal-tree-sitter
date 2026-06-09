@@ -22,6 +22,14 @@ module TreeSitter
   class Error < RuntimeError
   end
 
+  enum CaptureQuantifier
+    Zero       = 0
+    ZeroOrOne  = 1
+    ZeroOrMore = 2
+    One        = 3
+    OneOrMore  = 4
+  end
+
   enum SymbolType
     Regular
     Anonymous

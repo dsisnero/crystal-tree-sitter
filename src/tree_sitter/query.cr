@@ -100,8 +100,16 @@ module TreeSitter
       LibTreeSitter.ts_query_is_pattern_guaranteed_at_step(to_unsafe, byte_offset)
     end
 
-    def capture_quantifier_for_id(pattern_index : UInt32, capture_index : UInt32) : LibTreeSitter::TSQuantifier
-      LibTreeSitter.ts_query_capture_quantifier_for_id(to_unsafe, pattern_index, capture_index)
+    def capture_quantifier_for_id(pattern_index : UInt32, capture_index : UInt32) : CaptureQuantifier
+      CaptureQuantifier.from_value(
+        LibTreeSitter.ts_query_capture_quantifier_for_id(to_unsafe, pattern_index, capture_index).value
+      )
+    end
+
+    def capture_quantifiers_for_pattern(pattern_index : UInt32) : Array(CaptureQuantifier)
+      Array(CaptureQuantifier).new(capture_count) do |i|
+        capture_quantifier_for_id(pattern_index, i.to_u32)
+      end
     end
 
     # Parse and return all predicates for a given pattern index.
