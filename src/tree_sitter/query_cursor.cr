@@ -5,8 +5,15 @@ module TreeSitter
   class Match
     getter pattern_index : UInt16
     getter captures : Array(Capture)
+    getter id : UInt32
 
-    def initialize(@pattern_index, @captures)
+    def initialize(@pattern_index, @captures, @id)
+    end
+
+    def nodes_for_capture_index(capture_ix : UInt32) : Array(Node)
+      @captures.compact_map { |capture|
+        capture.node if capture.index == capture_ix
+      }
     end
   end
 
@@ -74,7 +81,7 @@ module TreeSitter
 
       ptr = LibTreeSitter.ts_query_capture_name_for_id(@query, capture.index, out strlen)
       rule = TreeSitter.string_pool.get(ptr, strlen)
-      Capture.new(rule, Node.new_unsafe(capture.node))
+      Capture.new(rule, Node.new_unsafe(capture.node), capture.index.to_u32)
     end
 
     # Returns the next match or *nil*.
@@ -93,10 +100,10 @@ module TreeSitter
 
         ptr = LibTreeSitter.ts_query_capture_name_for_id(@query, capture.index, out strlen)
         rule = TreeSitter.string_pool.get(ptr, strlen)
-        captures << Capture.new(rule, Node.new_unsafe(capture.node))
+        captures << Capture.new(rule, Node.new_unsafe(capture.node), capture.index.to_u32)
       end
 
-      Match.new(match.pattern_index, captures)
+      Match.new(match.pattern_index, captures, match.id.to_u32)
     end
 
     def each_capture(& : Capture -> Nil)
@@ -109,6 +116,30 @@ module TreeSitter
       while match = next_match
         yield match
       end
+    end
+
+    def match_limit : UInt32
+      LibTreeSitter.ts_query_cursor_match_limit(self)
+    end
+
+    def set_match_limit(limit : UInt32) : Nil
+      LibTreeSitter.ts_query_cursor_set_match_limit(self, limit)
+    end
+
+    def did_exceed_match_limit? : Bool
+      LibTreeSitter.ts_query_cursor_did_exceed_match_limit(self)
+    end
+
+    def set_max_start_depth(max_start_depth : UInt32) : Nil
+      LibTreeSitter.ts_query_cursor_set_max_start_depth(self, max_start_depth)
+    end
+
+    def set_timeout_micros(timeout_micros : UInt64) : Nil
+      LibTreeSitter.ts_query_cursor_set_timeout_micros(self, timeout_micros)
+    end
+
+    def timeout_micros : UInt64
+      LibTreeSitter.ts_query_cursor_timeout_micros(self)
     end
 
     def to_unsafe
