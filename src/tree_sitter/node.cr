@@ -103,6 +103,29 @@ module TreeSitter
       ChildrenIterator.new(self)
     end
 
+    # Iterate over only named children using a reusable cursor.
+    # Returns an `ExactSizeIterator`-like iterator with a known count.
+    def named_children(cursor : TreeCursor) : NamedChildrenIterator
+      cursor.reset(self)
+      cursor.goto_first_child
+      NamedChildrenIterator.new(cursor, named_child_count)
+    end
+
+    # Iterate over children with a given field name using a reusable cursor.
+    def children_by_field_name(field_name : String, cursor : TreeCursor) : ChildrenByFieldNameIterator
+      field_id = language.field_id_for_name(field_name)
+      cursor.reset(self)
+      cursor.goto_first_child
+      ChildrenByFieldNameIterator.new(cursor, field_id)
+    end
+
+    # Iterate over children with a given field id using a reusable cursor.
+    def children_by_field_id(field_id : UInt16, cursor : TreeCursor) : ChildrenByFieldIdIterator
+      cursor.reset(self)
+      cursor.goto_first_child
+      ChildrenByFieldIdIterator.new(cursor, field_id)
+    end
+
     # Get the node's type as a String.
     def type : String
       cstr = LibTreeSitter.ts_node_type(to_unsafe)
@@ -159,6 +182,32 @@ module TreeSitter
       Node.new_unsafe(node)
     end
 
+    def next_named_sibling : Node?
+      node = LibTreeSitter.ts_node_next_named_sibling(self)
+      return nil if LibTreeSitter.ts_node_is_null(node)
+      Node.new_unsafe(node)
+    end
+
+    def prev_named_sibling : Node?
+      node = LibTreeSitter.ts_node_prev_named_sibling(self)
+      return nil if LibTreeSitter.ts_node_is_null(node)
+      Node.new_unsafe(node)
+    end
+
+    def is_error? : Bool
+      LibTreeSitter.ts_node_is_error(self)
+    end
+
+    def child_by_field_id(field_id : UInt16) : Node?
+      node = LibTreeSitter.ts_node_child_by_field_id(self, field_id)
+      return nil if LibTreeSitter.ts_node_is_null(node)
+      Node.new_unsafe(node)
+    end
+
+    def next_parse_state : UInt16
+      LibTreeSitter.ts_node_next_parse_state(to_unsafe).to_u16
+    end
+
     # Get the node's child with the given field name.
     def child_by_field_name(field_name : String) : Node?
       node = LibTreeSitter.ts_node_child_by_field_name(self, field_name, field_name.bytesize.to_u32)
@@ -194,9 +243,66 @@ module TreeSitter
       Node.new_unsafe(node)
     end
 
-    # Create a tree cursor for walking the subtree rooted at this node
+    def language : Language
+      ptr = LibTreeSitter.ts_node_language(to_unsafe)
+      Language.new(ptr)
+    end
+
+    def parse_state : UInt16
+      LibTreeSitter.ts_node_parse_state(to_unsafe).to_u16
+    end
+
     def walk : TreeCursor
       TreeCursor.new(self)
+    end
+
+    def first_child_for_byte(byte : UInt32) : Node?
+      node = LibTreeSitter.ts_node_first_child_for_byte(self, byte)
+      return nil if LibTreeSitter.ts_node_is_null(node)
+      Node.new_unsafe(node)
+    end
+
+    def first_named_child_for_byte(byte : UInt32) : Node?
+      node = LibTreeSitter.ts_node_first_named_child_for_byte(self, byte)
+      return nil if LibTreeSitter.ts_node_is_null(node)
+      Node.new_unsafe(node)
+    end
+
+    def descendant_count : UInt32
+      LibTreeSitter.ts_node_descendant_count(self)
+    end
+
+    def named_descendant_for_byte_range(start_byte : UInt32, end_byte : UInt32) : Node?
+      node = LibTreeSitter.ts_node_named_descendant_for_byte_range(self, start_byte, end_byte)
+      return nil if LibTreeSitter.ts_node_is_null(node)
+      Node.new_unsafe(node)
+    end
+
+    def named_descendant_for_point_range(start_point : Point, end_point : Point) : Node?
+      node = LibTreeSitter.ts_node_named_descendant_for_point_range(self, start_point, end_point)
+      return nil if LibTreeSitter.ts_node_is_null(node)
+      Node.new_unsafe(node)
+    end
+
+    def byte_range : Tuple(UInt32, UInt32)
+      {start_byte, end_byte}
+    end
+
+    def id : LibC::ULong
+      @node.id.address
+    end
+
+    def kind_id : UInt16
+      LibTreeSitter.ts_node_symbol(to_unsafe).to_u16
+    end
+
+    def grammar_id : UInt16
+      LibTreeSitter.ts_node_grammar_symbol(to_unsafe).to_u16
+    end
+
+    def grammar_name : String
+      ptr = LibTreeSitter.ts_node_grammar_type(to_unsafe)
+      @@string_pool.get(ptr, LibC.strlen(ptr))
     end
 
     # Get an S-expression representing the node as a string.
@@ -239,6 +345,90 @@ module TreeSitter
     end
   end
 
+  private class NamedChildrenIterator
+    include Iterator(Node)
+
+    def initialize(@cursor : TreeCursor, @remaining : UInt32)
+      @started = false
+    end
+
+    def next : Node | Iterator::Stop
+      return stop if @remaining == 0
+      if @started
+        unless @cursor.goto_next_sibling
+          return stop
+        end
+      else
+        @started = true
+      end
+      loop do
+        node = @cursor.current_node
+        return stop if node.nil?
+        if node.named?
+          @remaining -= 1
+          return node
+        end
+        unless @cursor.goto_next_sibling
+          return stop
+        end
+      end
+    end
+  end
+
+  private class ChildrenByFieldNameIterator
+    include Iterator(Node)
+
+    @field_id : UInt16
+
+    def initialize(@cursor : TreeCursor, field_id : UInt16)
+      @field_id = field_id
+      @done = @field_id == 0
+    end
+
+    def next : Node | Iterator::Stop
+      return stop if @done
+      while @cursor.current_field_id != @field_id
+        unless @cursor.goto_next_sibling
+          @done = true
+          return stop
+        end
+      end
+      node = @cursor.current_node
+      return stop if node.nil?
+      unless @cursor.goto_next_sibling
+        @done = true
+      end
+      node
+    end
+  end
+
+  private class ChildrenByFieldIdIterator
+    include Iterator(Node)
+
+    @field_id : UInt16
+
+    def initialize(@cursor : TreeCursor, field_id : UInt16)
+      @field_id = field_id
+      @done = @field_id == 0
+    end
+
+    def next : Node | Iterator::Stop
+      return stop if @done
+      while @cursor.current_field_id != @field_id
+        unless @cursor.goto_next_sibling
+          @done = true
+          return stop
+        end
+      end
+      node = @cursor.current_node
+      return stop if node.nil?
+      unless @cursor.goto_next_sibling
+        @done = true
+      end
+      node
+    end
+  end
+
   # A stateful cursor for walking a syntax tree efficiently
   class TreeCursor
     @cursor : LibTreeSitter::TSTreeCursor
@@ -270,7 +460,7 @@ module TreeSitter
 
     # Get the field id of the cursor's current node
     def current_field_id : UInt16
-      LibTreeSitter.ts_tree_cursor_current_field_id(pointerof(@cursor))
+      LibTreeSitter.ts_tree_cursor_current_field_id(pointerof(@cursor)).to_u16
     end
 
     # Move the cursor to the parent of its current node
@@ -311,6 +501,22 @@ module TreeSitter
     # Reset the cursor to another cursor's position
     def reset_to(other : TreeCursor) : Nil
       LibTreeSitter.ts_tree_cursor_reset_to(pointerof(@cursor), pointerof(other.@cursor))
+    end
+
+    def descendant_index : UInt32
+      LibTreeSitter.ts_tree_cursor_current_descendant_index(pointerof(@cursor))
+    end
+
+    def goto_descendant(goal_descendant_index : UInt32) : Nil
+      LibTreeSitter.ts_tree_cursor_goto_descendant(pointerof(@cursor), goal_descendant_index)
+    end
+
+    def goto_first_child_for_byte(start_byte : UInt32, end_byte : UInt32) : UInt64
+      LibTreeSitter.ts_tree_cursor_goto_first_child_for_byte(pointerof(@cursor), start_byte, end_byte)
+    end
+
+    def goto_first_child_for_point(start_point : Point, end_point : Point) : UInt64
+      LibTreeSitter.ts_tree_cursor_goto_first_child_for_point(pointerof(@cursor), start_point, end_point)
     end
   end
 end
