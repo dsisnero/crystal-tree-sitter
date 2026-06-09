@@ -267,6 +267,21 @@ describe TreeSitter::Node do
       depth = cursor.current_depth
       depth.should eq(0)
     end
+
+    it "#goto_first_child_for_byte finds child by byte range" do
+      root_node = parse_json("[1, null]").root_node
+      cursor = TreeSitter::TreeCursor.new(root_node)
+      idx = cursor.goto_first_child_for_byte(1, 2)
+      idx.should be_a(UInt64)
+    end
+
+    it "#goto_first_child_for_point finds child by point range" do
+      root_node = parse_json("[1, null]").root_node
+      cursor = TreeSitter::TreeCursor.new(root_node)
+      idx = cursor.goto_first_child_for_point(
+        TreeSitter::Point.new(0, 1), TreeSitter::Point.new(0, 2))
+      idx.should be_a(UInt64)
+    end
   end
 
   describe "CaptureQuantifier" do
@@ -286,6 +301,37 @@ describe TreeSitter::Node do
       tree.should_not be_nil
       offsets.size.should be > 0
       offsets[0].should be_a(UInt32)
+    end
+  end
+
+  describe "TreeSitter.format_sexp" do
+    it "pretty-prints an S-expression" do
+      result = TreeSitter.format_sexp("(a (b) (c))")
+      result.should contain("\n")
+      result.should contain("(a")
+      result.should contain("(b")
+      result.should contain("(c")
+    end
+  end
+
+  describe TreeSitter::QueryError do
+    it "raises on invalid query with kind and offset" do
+      lang = TreeSitter::Language.new("json")
+      expect_raises(TreeSitter::QueryError) do
+        TreeSitter::Query.new(lang, "(invalid")
+      end
+    end
+
+    it "exposes error kind, offset, and message" do
+      lang = TreeSitter::Language.new("json")
+      begin
+        TreeSitter::Query.new(lang, "(invalid")
+      rescue ex : TreeSitter::QueryError
+        ex.offset.should be > 0
+        ex.message.should_not be_nil
+        ex.message.not_nil!.size.should be > 0
+        ex.kind.should_not be_nil
+      end
     end
   end
 end
