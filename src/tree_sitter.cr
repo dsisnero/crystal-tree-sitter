@@ -15,6 +15,9 @@ end
 module TreeSitter
   VERSION = "0.1.0"
 
+  LANGUAGE_VERSION = LibTreeSitter::TREE_SITTER_LANGUAGE_VERSION
+  MIN_COMPATIBLE_LANGUAGE_VERSION = LibTreeSitter::TREE_SITTER_MIN_COMPATIBLE_LANGUAGE_VERSION
+
   # Base class for all TreeSitter errors.
   class Error < RuntimeError
   end

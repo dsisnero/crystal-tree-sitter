@@ -58,6 +58,52 @@ module TreeSitter
       TreeSitter.string_pool.get(ptr, strlen)
     end
 
+    def start_byte_for_pattern(pattern_index : UInt32) : UInt32
+      LibTreeSitter.ts_query_start_byte_for_pattern(to_unsafe, pattern_index)
+    end
+
+    def end_byte_for_pattern(pattern_index : UInt32) : UInt32
+      LibTreeSitter.ts_query_end_byte_for_pattern(to_unsafe, pattern_index)
+    end
+
+    def capture_names : Array(String)
+      Array(String).new(capture_count) do |i|
+        capture_name_for_id(i.to_u32).not_nil!
+      end
+    end
+
+    def capture_index_for_name(name : String) : UInt32?
+      capture_count.times do |i|
+        n = capture_name_for_id(i.to_u32)
+        return i.to_u32 if n == name
+      end
+      nil
+    end
+
+    def disable_capture(name : String) : Nil
+      LibTreeSitter.ts_query_disable_capture(to_unsafe, name, name.bytesize.to_u32)
+    end
+
+    def disable_pattern(pattern_index : UInt32) : Nil
+      LibTreeSitter.ts_query_disable_pattern(to_unsafe, pattern_index)
+    end
+
+    def is_pattern_rooted?(pattern_index : UInt32) : Bool
+      LibTreeSitter.ts_query_is_pattern_rooted(to_unsafe, pattern_index)
+    end
+
+    def is_pattern_non_local?(pattern_index : UInt32) : Bool
+      LibTreeSitter.ts_query_is_pattern_non_local(to_unsafe, pattern_index)
+    end
+
+    def is_pattern_guaranteed_at_step?(byte_offset : UInt32) : Bool
+      LibTreeSitter.ts_query_is_pattern_guaranteed_at_step(to_unsafe, byte_offset)
+    end
+
+    def capture_quantifier_for_id(pattern_index : UInt32, capture_index : UInt32) : LibTreeSitter::TSQuantifier
+      LibTreeSitter.ts_query_capture_quantifier_for_id(to_unsafe, pattern_index, capture_index)
+    end
+
     # Parse and return all predicates for a given pattern index.
     #
     # Predicates are S-expressions in query patterns like:
