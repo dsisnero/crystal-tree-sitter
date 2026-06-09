@@ -15,6 +15,10 @@ module TreeSitter
         capture.node if capture.index == capture_ix
       }
     end
+
+    def remove(cursor : QueryCursor) : Nil
+      LibTreeSitter.ts_query_cursor_remove_match(cursor, @id)
+    end
   end
 
   class QueryCursor
