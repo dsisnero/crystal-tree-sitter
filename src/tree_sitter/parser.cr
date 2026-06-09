@@ -67,6 +67,29 @@ module TreeSitter
       parse?(old_tree, string) || raise Error.new("Parser error")
     end
 
+    def parse_with_progress(old_tree : Tree?, string : String, &progress : UInt32 ->) : Tree?
+      data = {string, progress}
+      input = LibTreeSitter::TSInput.new
+      input.payload = Box.box(data)
+      input.encoding = LibTreeSitter::TSInputEncoding::UTF8
+      input.read = ->(payload : Pointer(Void), index : UInt32, pos : LibTreeSitter::TSPoint, read : Pointer(UInt32)) do
+        tuple = Box({String, Proc(UInt32, Nil)}).unbox(payload)
+        src = tuple[0]
+        cb = tuple[1]
+        if index < src.bytesize
+          slice = src.to_slice[index..]
+          cb.call(index)
+          read.value = slice.size.to_u32
+          slice.to_unsafe
+        else
+          read.value = 0
+          Pointer(LibC::Char).null
+        end
+      end
+      ptr = LibTreeSitter.ts_parser_parse(to_unsafe, old_tree, input)
+      Tree.new(ptr) if ptr
+    end
+
     def parse?(old_tree : Tree?, &block : ReadProc) : Tree?
       input = LibTreeSitter::TSInput.new
       input.payload = Box.box(block)
