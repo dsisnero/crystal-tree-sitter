@@ -7,22 +7,29 @@ module TreeSitter
   # and optionally, a series of other S-expressions that match the node's children.
   class Query
     @query : LibTreeSitter::TSQuery*
+    @capture_names : Array(String)
+    @string_values : Array(String)
+    @pattern_count : UInt32
+    @capture_count : UInt32
+    @string_count : UInt32
 
-    # Create a new query from a string containing one or more S-expression
-    # patterns. The query is associated with a particular language, and can
-    # only be run on syntax nodes parsed with that language.
-    #
-    # If all of the given patterns are valid, this returns a `Query`.
-    # If a pattern is invalid, this raises an `Error` exception that provides two pieces
-    # of information about the problem:
-    # 1. The byte offset of the error.
-    # 2. The type of error.
     def initialize(language : Language, source : String)
       query = LibTreeSitter.ts_query_new(language, source, source.bytesize, out error_offset, out error_type)
       if error_type.none?
         @query = query
       else
         raise QueryError.from_c(error_offset, error_type)
+      end
+      @pattern_count = LibTreeSitter.ts_query_pattern_count(to_unsafe)
+      @capture_count = LibTreeSitter.ts_query_capture_count(to_unsafe)
+      @string_count = LibTreeSitter.ts_query_string_count(to_unsafe)
+      @capture_names = Array(String).new(@capture_count) do |i|
+        ptr = LibTreeSitter.ts_query_capture_name_for_id(to_unsafe, i.to_u32, out strlen)
+        TreeSitter.string_pool.get(ptr, strlen)
+      end
+      @string_values = Array(String).new(@string_count) do |i|
+        ptr = LibTreeSitter.ts_query_string_value_for_id(to_unsafe, i.to_u32, out strlen)
+        TreeSitter.string_pool.get(ptr, strlen)
       end
     end
 
@@ -32,29 +39,25 @@ module TreeSitter
     end
 
     def pattern_count : UInt32
-      LibTreeSitter.ts_query_pattern_count(to_unsafe)
+      @pattern_count
     end
 
     def capture_count : UInt32
-      LibTreeSitter.ts_query_capture_count(to_unsafe)
+      @capture_count
     end
 
     def string_count : UInt32
-      LibTreeSitter.ts_query_string_count(to_unsafe)
+      @string_count
     end
 
     # Get the name of a capture by its numeric id.
     def capture_name_for_id(index : UInt32) : String?
-      ptr = LibTreeSitter.ts_query_capture_name_for_id(to_unsafe, index, out strlen)
-      return nil if ptr.null?
-      TreeSitter.string_pool.get(ptr, strlen)
+      @capture_names[index.to_i]?
     end
 
     # Get the string value of a query string literal by its numeric id.
     def string_value_for_id(index : UInt32) : String?
-      ptr = LibTreeSitter.ts_query_string_value_for_id(to_unsafe, index, out strlen)
-      return nil if ptr.null?
-      TreeSitter.string_pool.get(ptr, strlen)
+      @string_values[index.to_i]?
     end
 
     # Get the byte offset where the given pattern starts in the query's source.

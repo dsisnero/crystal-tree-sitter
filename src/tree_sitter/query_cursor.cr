@@ -110,8 +110,7 @@ module TreeSitter
       capture = match.captures[capture_index]
       return nil if LibTreeSitter.ts_node_is_null(capture.node)
 
-      ptr = LibTreeSitter.ts_query_capture_name_for_id(@query, capture.index, out strlen)
-      rule = TreeSitter.string_pool.get(ptr, strlen)
+      rule = @query.capture_name_for_id(capture.index).not_nil!
       Capture.new(rule, Node.new_unsafe(capture.node), capture.index.to_u32)
     end
 
@@ -129,8 +128,7 @@ module TreeSitter
         # Skip null nodes in captures
         next if LibTreeSitter.ts_node_is_null(capture.node)
 
-        ptr = LibTreeSitter.ts_query_capture_name_for_id(@query, capture.index, out strlen)
-        rule = TreeSitter.string_pool.get(ptr, strlen)
+        rule = @query.capture_name_for_id(capture.index).not_nil!
         captures << Capture.new(rule, Node.new_unsafe(capture.node), capture.index.to_u32)
       end
 
