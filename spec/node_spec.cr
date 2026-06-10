@@ -312,6 +312,29 @@ describe TreeSitter::Node do
     end
   end
 
+  describe TreeSitter::QueryCursor do
+    it "#set_containing_byte_range restricts matches to containing range" do
+      lang = TreeSitter::Language.new("json")
+      query = TreeSitter::Query.new(lang, "(pair) @capture")
+      tree = parse_json("{\"key\": \"value\"}").not_nil!
+      cursor = TreeSitter::QueryCursor.new(query)
+      cursor.set_containing_byte_range(0, 20)
+      cursor.exec(tree.root_node)
+      cursor.next_match.should_not be_nil
+    end
+
+    it "#set_containing_point_range restricts matches to containing range" do
+      lang = TreeSitter::Language.new("json")
+      query = TreeSitter::Query.new(lang, "(pair) @capture")
+      tree = parse_json("{\"key\": \"value\"}").not_nil!
+      cursor = TreeSitter::QueryCursor.new(query)
+      cursor.set_containing_point_range(
+        TreeSitter::Point.new(0, 0), TreeSitter::Point.new(0, 20))
+      cursor.exec(tree.root_node)
+      cursor.next_match.should_not be_nil
+    end
+  end
+
   describe "TreeSitter.format_sexp" do
     it "pretty-prints an S-expression" do
       result = TreeSitter.format_sexp("(a (b) (c))")
