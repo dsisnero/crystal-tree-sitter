@@ -164,7 +164,9 @@ module TreeSitter
     #
     # See also `Metadata`.
     def metadata : Metadata?
-      nil
+      ptr = LibTreeSitter.ts_language_metadata(to_unsafe)
+      return nil if ptr.null?
+      Metadata.new(ptr.value.major_version, ptr.value.minor_version, ptr.value.patch_version)
     end
 
     # :nodoc:

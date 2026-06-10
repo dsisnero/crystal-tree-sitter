@@ -775,10 +775,10 @@ lib LibTreeSitter
   # will be executed.
   fun ts_query_cursor_set_byte_range(
     self : TSQueryCursor*, start_byte : LibC::UInt32T, end_byte : LibC::UInt32T,
-  ) : Void
+  ) : Bool
   fun ts_query_cursor_set_point_range(
     self : TSQueryCursor*, start_point : TSPoint, end_point : TSPoint,
-  ) : Void
+  ) : Bool
 
   fun ts_query_cursor_set_containing_byte_range(
     self : TSQueryCursor*, start_byte : LibC::UInt32T, end_byte : LibC::UInt32T,
@@ -833,6 +833,16 @@ lib LibTreeSitter
 
   # Get the number of valid states in this language.
   fun ts_language_state_count(TSLanguage*) : LibC::UInt32T
+
+  struct TSLanguageMetadata
+    major_version : LibC::UInt8T
+    minor_version : LibC::UInt8T
+    patch_version : LibC::UInt8T
+  end
+
+  fun ts_language_metadata(self : TSLanguage*) : TSLanguageMetadata*
+
+  fun ts_language_name(self : TSLanguage*) : LibC::Char*
 
   # Get a node type string for the given numerical id.
   fun ts_language_symbol_name(self : TSLanguage*, symbol : TSSymbol) : LibC::Char*

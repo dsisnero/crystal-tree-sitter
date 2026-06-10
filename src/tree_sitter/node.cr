@@ -78,10 +78,18 @@ module TreeSitter
     end
 
     # Get the node's immediate parent.
+    #
+    # Prefer `#child_with_descendant` for iterating over ancestors.
     def parent : Node?
       parent_node = LibTreeSitter.ts_node_parent(self)
       return nil if LibTreeSitter.ts_node_is_null(parent_node)
       Node.new_unsafe(parent_node)
+    end
+
+    def child_with_descendant(descendant : Node) : Node?
+      node = LibTreeSitter.ts_node_child_with_descendant(self, descendant)
+      return nil if LibTreeSitter.ts_node_is_null(node)
+      Node.new_unsafe(node)
     end
 
     # Get the node's child at the given index, where zero represents the first
@@ -470,6 +478,11 @@ module TreeSitter
     end
 
     # :nodoc:
+    protected def initialize_copy(other : TreeCursor)
+      @cursor = LibTreeSitter.ts_tree_cursor_copy(pointerof(other.@cursor))
+    end
+
+    # :nodoc:
     def finalize
       LibTreeSitter.ts_tree_cursor_delete(pointerof(@cursor))
     end
@@ -556,6 +569,12 @@ module TreeSitter
     # starts after the given point. Returns the child index.
     def goto_first_child_for_point(start_point : Point, end_point : Point) : UInt64
       LibTreeSitter.ts_tree_cursor_goto_first_child_for_point(pointerof(@cursor), start_point, end_point)
+    end
+
+    def copy : TreeCursor
+      result = TreeCursor.allocate
+      result.initialize_copy(self)
+      result
     end
   end
 end
