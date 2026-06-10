@@ -70,6 +70,14 @@ module TreeSitter
       LibTreeSitter.ts_query_cursor_set_point_range(self, start_point, end_point)
     end
 
+    def set_containing_byte_range(start_byte : UInt32, end_byte : UInt32) : Bool
+      LibTreeSitter.ts_query_cursor_set_containing_byte_range(self, start_byte, end_byte)
+    end
+
+    def set_containing_point_range(start_point : Point, end_point : Point) : Bool
+      LibTreeSitter.ts_query_cursor_set_containing_point_range(self, start_point, end_point)
+    end
+
     # Set the range of bytes in which the query will be executed.
     def set_byte_range(start_byte : UInt32, end_byte : UInt32)
       LibTreeSitter.ts_query_cursor_set_byte_range(self, start_byte, end_byte)

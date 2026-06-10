@@ -780,6 +780,14 @@ lib LibTreeSitter
     self : TSQueryCursor*, start_point : TSPoint, end_point : TSPoint,
   ) : Void
 
+  fun ts_query_cursor_set_containing_byte_range(
+    self : TSQueryCursor*, start_byte : LibC::UInt32T, end_byte : LibC::UInt32T,
+  ) : Bool
+
+  fun ts_query_cursor_set_containing_point_range(
+    self : TSQueryCursor*, start_point : TSPoint, end_point : TSPoint,
+  ) : Bool
+
   # Advance to the next match of the currently running query.
   #
   # If there is a match, write it to `*match` and return `true`.
