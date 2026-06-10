@@ -365,4 +365,25 @@ describe TreeSitter::Node do
       end
     end
   end
+
+  describe "TreeCursor#copy" do
+    it "creates an independent copy of the cursor" do
+      root_node = parse_json("[1, null]").root_node
+      cursor = TreeSitter::TreeCursor.new(root_node)
+      cursor.goto_first_child
+      copy = cursor.copy
+      copy.current_depth.should eq(cursor.current_depth)
+    end
+  end
+
+  describe "#child_with_descendant" do
+    it "finds the child that contains the given descendant" do
+      root_node = parse_json("[1, null]").root_node
+      array_node = root_node.named_child(0).not_nil!
+      number_node = array_node.named_child(0).not_nil!
+      result = root_node.child_with_descendant(number_node)
+      result.should_not be_nil
+      result.not_nil!.type.should eq("array")
+    end
+  end
 end
