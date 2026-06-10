@@ -28,6 +28,115 @@ The code used in the [Using Parsers](https://tree-sitter.github.io/tree-sitter/u
 was ported as a spec test at [spec/tree_sitter_spec.cr](spec/tree_sitter_spec.cr), the API documentation is being
 ported as well, not yet on github-pages, but run `crystal doc` and have fun.
 
+### Basic Parsing
+
+```crystal
+require "tree_sitter"
+
+parser = TreeSitter::Parser.new("json")
+tree = parser.parse(nil, "[1, null]").not_nil!
+root_node = tree.root_node
+
+root_node.type.should eq("document")
+```
+
+### Iterators
+
+Cursor-based iterators for efficient tree walking (reuse cursor across iterations):
+
+```crystal
+root_node = parser.parse(nil, source).not_nil!.root_node
+cursor = TreeSitter::TreeCursor.new(root_node)
+
+# Iterate only named children (skip anonymous tokens like brackets)
+root_node.named_children(cursor).each do |node|
+  puts "#{node.type}: #{node.text(source)}"
+end
+
+# Filter children by field name
+pair_node = root_node.named_child(0).not_nil!
+pair_node.children_by_field_name("key", cursor).each do |node|
+  puts "key: #{node.text(source)}"
+end
+```
+
+### Tree Cursor Walking
+
+```crystal
+cursor = TreeSitter::TreeCursor.new(root_node)
+if cursor.goto_first_child
+  loop do
+    node = cursor.current_node
+    break unless node
+    puts "#{node.type} (depth #{cursor.current_depth})"
+    break unless cursor.goto_next_sibling
+  end
+end
+```
+
+### Query with Match Controls
+
+```crystal
+query = TreeSitter::Query.new(language, "(pair) @capture")
+cursor = TreeSitter::QueryCursor.new(query)
+cursor.set_match_limit(10)  # Limit in-progress matches
+cursor.exec(tree.root_node)
+
+cursor.each_match do |match|
+  puts "Pattern #{match.pattern_index}"
+  nodes = match.nodes_for_capture_index(0)
+  nodes.each { |n| puts "  #{n.type}" }
+end
+```
+
+### Editing
+
+Once you have a syntax tree, you can edit it when source code changes.
+Passing the previous edited tree makes `parse` run much more quickly:
+
+```crystal
+# Convert between byte offsets and row/column points
+point_to_offset = ->(line : Int32, col : Int32) { col.to_u32 }
+offset_to_point = ->(offset : UInt32) { TreeSitter::Point.new(0, offset.to_i) }
+
+editor = TreeSitter::TreeEditor.new(old_tree, point_to_offset, offset_to_point)
+editor.insert(line: 0, column: 8, n_bytes: 6)
+new_tree = parser.parse(old_tree, new_source)
+```
+
+### Changed Ranges
+
+Compare two trees to find what changed:
+
+```crystal
+new_tree = parser.parse(old_tree, new_source).not_nil!
+new_tree.changed_ranges(old_tree).each do |range|
+  puts "changed: bytes #{range.start_byte}..#{range.end_byte}"
+end
+```
+
+### Progress Callback
+
+```crystal
+parser.parse_with_progress(tree, source) do |byte_offset|
+  puts "parsing at byte #{byte_offset}"
+end
+```
+
+### Lookahead Iterator
+
+Get valid symbols for a parse state (useful for autocomplete):
+
+```crystal
+node = tree.root_node
+iter = TreeSitter::LookaheadIterator.new(node.language, node.parse_state)
+iter.each do |symbol_id|
+  puts iter.current_symbol_name
+end
+```
+
+### Advanced Usage
+
 ```crystal
 require "tree_sitter"
 
