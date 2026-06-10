@@ -104,7 +104,8 @@ module TreeSitter
     end
 
     # Iterate over only named children using a reusable cursor.
-    # Returns an `ExactSizeIterator`-like iterator with a known count.
+    #
+    # See also `#named?`
     def named_children(cursor : TreeCursor) : NamedChildrenIterator
       cursor.reset(self)
       cursor.goto_first_child
@@ -120,6 +121,8 @@ module TreeSitter
     end
 
     # Iterate over children with a given field id using a reusable cursor.
+    #
+    # See also `#children_by_field_name`
     def children_by_field_id(field_id : UInt16, cursor : TreeCursor) : ChildrenByFieldIdIterator
       cursor.reset(self)
       cursor.goto_first_child
@@ -152,12 +155,14 @@ module TreeSitter
       Point.new(LibTreeSitter.ts_node_end_point(to_unsafe))
     end
 
+    # Get the smallest node within this node that spans the given byte range.
     def descendant(start_byte : UInt32, end_byte : UInt32) : Node?
       ptr = LibTreeSitter.ts_node_descendant_for_byte_range(to_unsafe, start_byte, end_byte)
       return nil if LibTreeSitter.ts_node_is_null(ptr)
       Node.new_unsafe(ptr)
     end
 
+    # Get the smallest node within this node that spans the given point range.
     def descendant(start_point : Point, end_point : Point) : Node?
       ptr = LibTreeSitter.ts_node_descendant_for_point_range(to_unsafe, start_point, end_point)
       return nil if LibTreeSitter.ts_node_is_null(ptr)
@@ -182,28 +187,36 @@ module TreeSitter
       Node.new_unsafe(node)
     end
 
+    # Get the node's next named sibling.
     def next_named_sibling : Node?
       node = LibTreeSitter.ts_node_next_named_sibling(self)
       return nil if LibTreeSitter.ts_node_is_null(node)
       Node.new_unsafe(node)
     end
 
+    # Get the node's previous named sibling.
     def prev_named_sibling : Node?
       node = LibTreeSitter.ts_node_prev_named_sibling(self)
       return nil if LibTreeSitter.ts_node_is_null(node)
       Node.new_unsafe(node)
     end
 
+    # Check if the node is a syntax error. Syntax errors represent parts of the
+    # code that could not be incorporated into a valid syntax tree.
     def is_error? : Bool
       LibTreeSitter.ts_node_is_error(self)
     end
 
+    # Get the node's child with the given numerical field id.
+    #
+    # See also `#child_by_field_name`
     def child_by_field_id(field_id : UInt16) : Node?
       node = LibTreeSitter.ts_node_child_by_field_id(self, field_id)
       return nil if LibTreeSitter.ts_node_is_null(node)
       Node.new_unsafe(node)
     end
 
+    # Get the parse state after this node.
     def next_parse_state : UInt16
       LibTreeSitter.ts_node_next_parse_state(to_unsafe).to_u16
     end
@@ -243,63 +256,77 @@ module TreeSitter
       Node.new_unsafe(node)
     end
 
+    # Get the Language that was used to parse this node's syntax tree.
     def language : Language
       ptr = LibTreeSitter.ts_node_language(to_unsafe)
       Language.new(ptr)
     end
 
+    # Get the node's parse state.
     def parse_state : UInt16
       LibTreeSitter.ts_node_parse_state(to_unsafe).to_u16
     end
 
+    # Create a new TreeCursor starting from this node.
     def walk : TreeCursor
       TreeCursor.new(self)
     end
 
+    # Get the node's first child that contains or starts after the given byte offset.
     def first_child_for_byte(byte : UInt32) : Node?
       node = LibTreeSitter.ts_node_first_child_for_byte(self, byte)
       return nil if LibTreeSitter.ts_node_is_null(node)
       Node.new_unsafe(node)
     end
 
+    # Get the node's first named child that contains or starts after the given byte offset.
     def first_named_child_for_byte(byte : UInt32) : Node?
       node = LibTreeSitter.ts_node_first_named_child_for_byte(self, byte)
       return nil if LibTreeSitter.ts_node_is_null(node)
       Node.new_unsafe(node)
     end
 
+    # Get the node's number of descendants, including one for the node itself.
     def descendant_count : UInt32
       LibTreeSitter.ts_node_descendant_count(self)
     end
 
+    # Get the smallest named node within this node that spans the given byte range.
     def named_descendant_for_byte_range(start_byte : UInt32, end_byte : UInt32) : Node?
       node = LibTreeSitter.ts_node_named_descendant_for_byte_range(self, start_byte, end_byte)
       return nil if LibTreeSitter.ts_node_is_null(node)
       Node.new_unsafe(node)
     end
 
+    # Get the smallest named node within this node that spans the given point range.
     def named_descendant_for_point_range(start_point : Point, end_point : Point) : Node?
       node = LibTreeSitter.ts_node_named_descendant_for_point_range(self, start_point, end_point)
       return nil if LibTreeSitter.ts_node_is_null(node)
       Node.new_unsafe(node)
     end
 
+    # Get the byte range of source code that this node represents.
     def byte_range : Tuple(UInt32, UInt32)
       {start_byte, end_byte}
     end
 
+    # Get a numeric id for this node that is unique. Within a given syntax tree,
+    # no two nodes have the same id.
     def id : LibC::ULong
       @node.id.address
     end
 
+    # Get the node's type as a numerical id.
     def kind_id : UInt16
       LibTreeSitter.ts_node_symbol(to_unsafe).to_u16
     end
 
+    # Get the node's type as a numerical id as it appears in the grammar ignoring aliases.
     def grammar_id : UInt16
       LibTreeSitter.ts_node_grammar_symbol(to_unsafe).to_u16
     end
 
+    # Get the node's symbol name as it appears in the grammar ignoring aliases.
     def grammar_name : String
       ptr = LibTreeSitter.ts_node_grammar_type(to_unsafe)
       @@string_pool.get(ptr, LibC.strlen(ptr))
@@ -312,6 +339,7 @@ module TreeSitter
       io.write(bytes)
     end
 
+    # Get the source text covered by this node.
     def text(source : String) : String
       start_pos = start_byte
       end_pos = end_byte
@@ -345,6 +373,7 @@ module TreeSitter
     end
   end
 
+  # Iterator for named children using a tree cursor.
   private class NamedChildrenIterator
     include Iterator(Node)
 
@@ -375,6 +404,7 @@ module TreeSitter
     end
   end
 
+  # Iterator for children with a given field name using a tree cursor.
   private class ChildrenByFieldNameIterator
     include Iterator(Node)
 
@@ -402,6 +432,7 @@ module TreeSitter
     end
   end
 
+  # Iterator for children with a given field id using a tree cursor.
   private class ChildrenByFieldIdIterator
     include Iterator(Node)
 
@@ -503,18 +534,26 @@ module TreeSitter
       LibTreeSitter.ts_tree_cursor_reset_to(pointerof(@cursor), pointerof(other.@cursor))
     end
 
+    # Get the index of the cursor's current node out of all descendants of the
+    # original node that the cursor was constructed with.
     def descendant_index : UInt32
       LibTreeSitter.ts_tree_cursor_current_descendant_index(pointerof(@cursor))
     end
 
+    # Move the cursor to the nth descendant of the original node, where zero
+    # represents the original node itself.
     def goto_descendant(goal_descendant_index : UInt32) : Nil
       LibTreeSitter.ts_tree_cursor_goto_descendant(pointerof(@cursor), goal_descendant_index)
     end
 
+    # Move the cursor to the first child of its current node that contains or
+    # starts after the given byte offset. Returns the child index.
     def goto_first_child_for_byte(start_byte : UInt32, end_byte : UInt32) : UInt64
       LibTreeSitter.ts_tree_cursor_goto_first_child_for_byte(pointerof(@cursor), start_byte, end_byte)
     end
 
+    # Move the cursor to the first child of its current node that contains or
+    # starts after the given point. Returns the child index.
     def goto_first_child_for_point(start_point : Point, end_point : Point) : UInt64
       LibTreeSitter.ts_tree_cursor_goto_first_child_for_point(pointerof(@cursor), start_point, end_point)
     end

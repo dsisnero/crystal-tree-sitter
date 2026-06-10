@@ -67,6 +67,7 @@ module TreeSitter
       parse?(old_tree, string) || raise Error.new("Parser error")
     end
 
+    # Parse a string and provide a progress callback that receives the current byte index.
     def parse_with_progress(old_tree : Tree?, string : String, &progress : UInt32 ->) : Tree?
       data = {string, progress}
       input = LibTreeSitter::TSInput.new
@@ -134,27 +135,50 @@ module TreeSitter
       LibTreeSitter.ts_parser_print_dot_graphs(to_unsafe, fd)
     end
 
+    # Stop the parser from printing debugging graphs while parsing.
     def stop_printing_dot_graphs : Nil
       LibTreeSitter.ts_parser_print_dot_graphs(to_unsafe, -1)
     end
 
+    # Get the ranges of text that the parser will include when parsing.
     def included_ranges : Range::Iterator
       ranges = LibTreeSitter.ts_parser_included_ranges(to_unsafe, out length)
       Range::Iterator.new(ranges, length)
     end
 
+    # Set the ranges of text that the parser should include when parsing.
+    #
+    # By default, the parser will always include entire documents. This
+    # function allows you to parse only a *portion* of a document but
+    # still return a syntax tree whose ranges match up with the document
+    # as a whole. You can also pass multiple disjoint ranges.
+    #
+    # If `ranges` is empty, then the entire document will be parsed.
+    # Otherwise, the given ranges must be ordered from earliest to latest
+    # in the document, and they must not overlap. Returns true on success.
     def set_included_ranges(ranges : Array(Range)) : Bool
       LibTreeSitter.ts_parser_set_included_ranges(to_unsafe, ranges.to_unsafe, ranges.size.to_u32)
     end
 
+    # Set the maximum duration in microseconds that parsing should be allowed to
+    # take before halting.
+    #
+    # If parsing takes longer than this, it will halt early, returning nil.
+    # See `#parse` for more information.
     def set_timeout_micros(timeout_micros : UInt64) : Nil
       LibTreeSitter.ts_parser_set_timeout_micros(to_unsafe, timeout_micros)
     end
 
+    # Get the duration in microseconds that parsing is allowed to take.
     def timeout_micros : UInt64
       LibTreeSitter.ts_parser_timeout_micros(to_unsafe)
     end
 
+    # Set the logging callback that the parser should use during parsing.
+    #
+    # The parser does not take ownership over the logger payload. If a logger was
+    # previously assigned, the caller is responsible for releasing any memory
+    # owned by the previous logger.
     def set_logger(&block : (LibTreeSitter::TSLogType, String) -> Nil) : Nil
       payload = Box.box(block)
       logger = LibTreeSitter::TSLogger.new
@@ -166,6 +190,7 @@ module TreeSitter
       LibTreeSitter.ts_parser_set_logger(to_unsafe, logger)
     end
 
+    # Stop the parsing logger, disabling any log output.
     def stop_logging : Nil
       logger = LibTreeSitter::TSLogger.new
       logger.payload = Pointer(Void).null

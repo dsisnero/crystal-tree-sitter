@@ -57,20 +57,30 @@ module TreeSitter
       TreeSitter.string_pool.get(ptr, strlen)
     end
 
+    # Get the byte offset where the given pattern starts in the query's source.
+    #
+    # This can be useful when combining queries by concatenating their source
+    # code strings.
     def start_byte_for_pattern(pattern_index : UInt32) : UInt32
       LibTreeSitter.ts_query_start_byte_for_pattern(to_unsafe, pattern_index)
     end
 
+    # Get the byte offset where the given pattern ends in the query's source.
+    #
+    # This can be useful when combining queries by concatenating their source
+    # code strings.
     def end_byte_for_pattern(pattern_index : UInt32) : UInt32
       LibTreeSitter.ts_query_end_byte_for_pattern(to_unsafe, pattern_index)
     end
 
+    # Get the names of all captures used in the query.
     def capture_names : Array(String)
       Array(String).new(capture_count) do |i|
         capture_name_for_id(i.to_u32).not_nil!
       end
     end
 
+    # Get the index for a given capture name.
     def capture_index_for_name(name : String) : UInt32?
       capture_count.times do |i|
         n = capture_name_for_id(i.to_u32)
@@ -79,32 +89,53 @@ module TreeSitter
       nil
     end
 
+    # Disable a certain capture within a query.
+    #
+    # This prevents the capture from being returned in matches, and also avoids
+    # any resource usage associated with recording the capture.
     def disable_capture(name : String) : Nil
       LibTreeSitter.ts_query_disable_capture(to_unsafe, name, name.bytesize.to_u32)
     end
 
+    # Disable a certain pattern within a query.
+    #
+    # This prevents the pattern from matching and removes most of the overhead
+    # associated with the pattern.
     def disable_pattern(pattern_index : UInt32) : Nil
       LibTreeSitter.ts_query_disable_pattern(to_unsafe, pattern_index)
     end
 
+    # Check if the given pattern in the query has a single root node.
     def is_pattern_rooted?(pattern_index : UInt32) : Bool
       LibTreeSitter.ts_query_is_pattern_rooted(to_unsafe, pattern_index)
     end
 
+    # Check if the given pattern in the query is 'non local'.
+    #
+    # A non-local pattern has multiple root nodes and can match within a
+    # repeating sequence of nodes, as specified by the grammar. Non-local
+    # patterns disable certain optimizations that would otherwise be possible
+    # when executing a query on a specific range of a syntax tree.
     def is_pattern_non_local?(pattern_index : UInt32) : Bool
       LibTreeSitter.ts_query_is_pattern_non_local(to_unsafe, pattern_index)
     end
 
+    # Check if a given pattern is guaranteed to match once a given step is reached.
+    # The step is specified by its byte offset in the query's source code.
     def is_pattern_guaranteed_at_step?(byte_offset : UInt32) : Bool
       LibTreeSitter.ts_query_is_pattern_guaranteed_at_step(to_unsafe, byte_offset)
     end
 
+    # Get the quantifier of a capture for the given pattern and capture index.
+    # Each capture is associated with a numeric id based on the order that it
+    # appeared in the query's source.
     def capture_quantifier_for_id(pattern_index : UInt32, capture_index : UInt32) : CaptureQuantifier
       CaptureQuantifier.from_value(
         LibTreeSitter.ts_query_capture_quantifier_for_id(to_unsafe, pattern_index, capture_index).value
       )
     end
 
+    # Get the capture quantifiers for all captures of a given pattern.
     def capture_quantifiers_for_pattern(pattern_index : UInt32) : Array(CaptureQuantifier)
       Array(CaptureQuantifier).new(capture_count) do |i|
         capture_quantifier_for_id(pattern_index, i.to_u32)

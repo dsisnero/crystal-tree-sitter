@@ -34,19 +34,24 @@ module TreeSitter
       Range::Iterator.new(ranges, length)
     end
 
+    # Get the root node of the syntax tree, but with its position
+    # shifted forward by the given offset.
     def root_node_with_offset(offset_bytes : UInt32, offset_extent : Point) : Node
       Node.new(LibTreeSitter.ts_tree_root_node_with_offset(to_unsafe, offset_bytes, offset_extent))
     end
 
+    # Get the language that was used to parse the syntax tree.
     def language : Language
       ptr = LibTreeSitter.ts_tree_language(to_unsafe)
       Language.new(ptr)
     end
 
+    # Create a new `TreeCursor` starting from the root of the tree.
     def walk : TreeCursor
       TreeCursor.new(root_node)
     end
 
+    # Get the array of included ranges that was used to parse the syntax tree.
     def included_ranges : Range::Iterator
       ranges = LibTreeSitter.ts_tree_included_ranges(to_unsafe, out length)
       Range::Iterator.new(ranges, length)
