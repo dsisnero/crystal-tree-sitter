@@ -304,6 +304,14 @@ describe TreeSitter::Node do
     end
   end
 
+  describe "#to_s" do
+    it "returns S-expression as String" do
+      root_node = parse_json("[1, null]").root_node
+      sexp = root_node.to_s
+      sexp.should eq("(document (array (number) (null)))")
+    end
+  end
+
   describe "TreeSitter.format_sexp" do
     it "pretty-prints an S-expression" do
       result = TreeSitter.format_sexp("(a (b) (c))")
