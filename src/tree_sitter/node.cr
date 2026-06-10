@@ -111,6 +111,31 @@ module TreeSitter
       ChildrenIterator.new(self)
     end
 
+    # Yield each child to a block. Faster than `children.each` for tight loops.
+    def each_child(& : Node ->) : Nil
+      count = child_count.to_i32
+      i = 0
+      while i < count
+        yield child(i)
+        i += 1
+      end
+    end
+
+    # Yield each *named* child to a block. Faster than `named_children.each`
+    # because it avoids cursor allocation and Iterator overhead.
+    #
+    # For cursor reuse across multiple iterations, use `named_children(cursor)`.
+    # For single-use iteration with zero overhead, use `each_named_child`.
+    def each_named_child(& : Node ->) : Nil
+      count = named_child_count.to_i32
+      i = 0
+      while i < count
+        node = named_child(i)
+        yield node unless node.nil?
+        i += 1
+      end
+    end
+
     # Iterate over only named children using a reusable cursor.
     #
     # See also `#named?`

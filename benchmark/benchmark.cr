@@ -83,6 +83,14 @@ Benchmark.ips do |x|
     Harness.tree.root_node.children.each { |_| }
   end
 
+  x.report("each_child 200") do
+    Harness.tree.root_node.each_child { |_| }
+  end
+
+  x.report("each_named_child 200") do
+    Harness.tree.root_node.each_named_child { |_| }
+  end
+
   x.report("named_children 200") do
     root = Harness.tree.root_node
     cursor = TreeSitter::TreeCursor.new(root)
