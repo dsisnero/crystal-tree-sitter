@@ -13,7 +13,7 @@ private def calloc(n : LibC::SizeT, size : LibC::SizeT) : Pointer(Void)
 end
 
 module TreeSitter
-  VERSION = "0.2.0"
+  VERSION = "0.3.0"
 
   # The latest ABI version that is supported by the current version of the
   # library.

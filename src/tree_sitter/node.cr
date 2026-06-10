@@ -113,10 +113,14 @@ module TreeSitter
 
     # Yield each child to a block. Faster than `children.each` for tight loops.
     def each_child(& : Node ->) : Nil
-      count = child_count.to_i32
-      i = 0
+      unsafe = to_unsafe
+      count = LibTreeSitter.ts_node_child_count(unsafe)
+      i = 0u32
       while i < count
-        yield child(i)
+        node = LibTreeSitter.ts_node_child(unsafe, i)
+        unless LibTreeSitter.ts_node_is_null(node)
+          yield Node.new_unsafe(node)
+        end
         i += 1
       end
     end
@@ -127,11 +131,14 @@ module TreeSitter
     # For cursor reuse across multiple iterations, use `named_children(cursor)`.
     # For single-use iteration with zero overhead, use `each_named_child`.
     def each_named_child(& : Node ->) : Nil
-      count = named_child_count.to_i32
-      i = 0
+      unsafe = to_unsafe
+      count = LibTreeSitter.ts_node_named_child_count(unsafe)
+      i = 0u32
       while i < count
-        node = named_child(i)
-        yield node unless node.nil?
+        node = LibTreeSitter.ts_node_named_child(unsafe, i)
+        unless LibTreeSitter.ts_node_is_null(node)
+          yield Node.new_unsafe(node)
+        end
         i += 1
       end
     end
@@ -399,15 +406,16 @@ module TreeSitter
     include Iterator(Node)
 
     def initialize(@node : Node)
-      @index = 0
-      @count = @node.child_count
+      @index = 0u32
+      @count = LibTreeSitter.ts_node_child_count(@node.to_unsafe)
     end
 
     def next : Node | Iterator::Stop
       if @index < @count
-        child = @node.child(@index)
+        raw = LibTreeSitter.ts_node_child(@node.to_unsafe, @index)
         @index += 1
-        child
+        return Node.new_unsafe(raw) unless LibTreeSitter.ts_node_is_null(raw)
+        self.next
       else
         stop
       end
@@ -424,21 +432,21 @@ module TreeSitter
 
     def next : Node | Iterator::Stop
       return stop if @remaining == 0
+      cursor_ptr = @cursor.unsafe_cursor_ptr
       if @started
-        unless @cursor.goto_next_sibling
+        unless LibTreeSitter.ts_tree_cursor_goto_next_sibling(cursor_ptr)
           return stop
         end
       else
         @started = true
       end
       loop do
-        node = @cursor.current_node
-        return stop if node.nil?
-        if node.named?
+        raw_node = LibTreeSitter.ts_tree_cursor_current_node(cursor_ptr)
+        if LibTreeSitter.ts_node_is_named(raw_node)
           @remaining -= 1
-          return node
+          return Node.new_unsafe(raw_node)
         end
-        unless @cursor.goto_next_sibling
+        unless LibTreeSitter.ts_tree_cursor_goto_next_sibling(cursor_ptr)
           return stop
         end
       end
@@ -458,18 +466,18 @@ module TreeSitter
 
     def next : Node | Iterator::Stop
       return stop if @done
+      cursor_ptr = @cursor.unsafe_cursor_ptr
       while @cursor.current_field_id != @field_id
-        unless @cursor.goto_next_sibling
+        unless LibTreeSitter.ts_tree_cursor_goto_next_sibling(cursor_ptr)
           @done = true
           return stop
         end
       end
-      node = @cursor.current_node
-      return stop if node.nil?
-      unless @cursor.goto_next_sibling
+      raw_node = LibTreeSitter.ts_tree_cursor_current_node(cursor_ptr)
+      unless LibTreeSitter.ts_tree_cursor_goto_next_sibling(cursor_ptr)
         @done = true
       end
-      node
+      Node.new_unsafe(raw_node)
     end
   end
 
@@ -486,18 +494,18 @@ module TreeSitter
 
     def next : Node | Iterator::Stop
       return stop if @done
+      cursor_ptr = @cursor.unsafe_cursor_ptr
       while @cursor.current_field_id != @field_id
-        unless @cursor.goto_next_sibling
+        unless LibTreeSitter.ts_tree_cursor_goto_next_sibling(cursor_ptr)
           @done = true
           return stop
         end
       end
-      node = @cursor.current_node
-      return stop if node.nil?
-      unless @cursor.goto_next_sibling
+      raw_node = LibTreeSitter.ts_tree_cursor_current_node(cursor_ptr)
+      unless LibTreeSitter.ts_tree_cursor_goto_next_sibling(cursor_ptr)
         @done = true
       end
-      node
+      Node.new_unsafe(raw_node)
     end
   end
 
@@ -608,6 +616,10 @@ module TreeSitter
       result = TreeCursor.allocate
       result.initialize_copy(self)
       result
+    end
+
+    protected def unsafe_cursor_ptr
+      pointerof(@cursor)
     end
   end
 end

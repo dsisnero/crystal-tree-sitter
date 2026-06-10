@@ -73,6 +73,13 @@ Benchmark.bm do |x|
 end
 
 puts
+# Get the array node (second level) which has 200 children for real iteration benchmarks
+def array_node
+  root = Harness.tree.root_node
+  array = root.named_child(0).not_nil!
+  array
+end
+
 puts "=== IPS (iterations/sec, higher = better) ==="
 puts
 
@@ -89,6 +96,18 @@ Benchmark.ips do |x|
 
   x.report("each_named_child 200") do
     Harness.tree.root_node.each_named_child { |_| }
+  end
+
+  x.report("each_child array200") do
+    array_node.each_child { |_| }
+  end
+
+  x.report("each_named_child array200") do
+    array_node.each_named_child { |_| }
+  end
+
+  x.report("children_iter array200") do
+    array_node.children.each { |_| }
   end
 
   x.report("named_children 200") do
@@ -109,6 +128,15 @@ Benchmark.ips do |x|
     first_obj.children_by_field_name("key", cursor).each { |_| }
   end
 
+  x.report("field_by_id 200") do
+    root = Harness.tree.root_node
+    arr = root.named_child(0).not_nil!
+    first_obj = arr.named_child(0).not_nil!
+    cursor = TreeSitter::TreeCursor.new(first_obj)
+    field_id = first_obj.language.field_id_for_name("key")
+    first_obj.children_by_field_id(field_id, cursor).each { |_| }
+  end
+
   x.report("query each_capture") do
     cursor = TreeSitter::QueryCursor.new(Harness.query)
     cursor.exec(Harness.tree.root_node)
@@ -127,5 +155,40 @@ Benchmark.ips do |x|
     cursor.goto_first_child
     cursor.goto_first_child
     n = cursor.current_node
+  end
+
+  x.report("node.type access") do
+    200.times { array_node.type }
+  end
+
+  x.report("node.kind_id") do
+    200.times { array_node.kind_id }
+  end
+
+  x.report("node.language") do
+    200.times { array_node.language }
+  end
+
+  x.report("node.text") do
+    array_node.text(LARGE_JSON)
+  end
+
+  x.report("query cursor reuse") do
+    cursor = TreeSitter::QueryCursor.new(Harness.query)
+    100.times do
+      cursor.exec(Harness.tree.root_node)
+      cursor.each_capture { |_| }
+    end
+  end
+
+  x.report("range iter 200") do
+    ranges = Harness.tree.included_ranges
+    ranges.each { |_| }
+  end
+
+  x.report("lookahead names") do
+    root = Harness.tree.root_node
+    iter = TreeSitter::LookaheadIterator.new(root.language, root.parse_state)
+    iter.iter_names.each { |_| }
   end
 end
