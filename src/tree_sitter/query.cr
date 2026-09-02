@@ -35,6 +35,11 @@ module TreeSitter
       end
     end
 
+    # Construct a query without Rust-specific predicate validation.
+    def self.new_raw(language : Language, source : String) : Query
+      new(language, source)
+    end
+
     protected def initialize(@query : LibTreeSitter::TSQuery*)
       @pattern_count = LibTreeSitter.ts_query_pattern_count(to_unsafe)
       @capture_count = LibTreeSitter.ts_query_capture_count(to_unsafe)
@@ -210,6 +215,33 @@ module TreeSitter
       predicates
     end
 
+    # Get properties assigned by `#set!` predicates for a pattern.
+    def property_settings(pattern_index : UInt32) : Array(QueryProperty)
+      predicates_for_pattern(pattern_index).compact_map do |predicate|
+        property_for(predicate) if predicate.name == "set!"
+      end
+    end
+
+    # Get properties checked by `#is?` and `#is-not?` predicates. The boolean
+    # is true for `#is?` and false for `#is-not?`.
+    def property_predicates(pattern_index : UInt32) : Array(Tuple(QueryProperty, Bool))
+      predicates_for_pattern(pattern_index).compact_map do |predicate|
+        case predicate.name
+        when "is?"
+          property_for(predicate).try { |property| {property, true} }
+        when "is-not?"
+          property_for(predicate).try { |property| {property, false} }
+        end
+      end
+    end
+
+    # Get user-defined predicates excluding Tree-sitter's text and property predicates.
+    def general_predicates(pattern_index : UInt32) : Array(Predicate)
+      predicates_for_pattern(pattern_index).reject do |predicate|
+        {"eq?", "not-eq?", "any-eq?", "any-not-eq?", "match?", "not-match?", "any-match?", "any-not-match?", "any-of?", "not-any-of?", "set!", "is?", "is-not?"}.includes?(predicate.name)
+      end
+    end
+
     # Return a `Predicate::Arg` for a given predicate step, or `nil` if the step
     # holds no value (e.g. `done`/`call` steps or an unresolved capture).
     private def predicate_arg_for_step(step) : Predicate::Arg?
@@ -219,6 +251,15 @@ module TreeSitter
       when .string?
         string_value_for_id(step.value_id).try { |value| Predicate::Arg.string(value) }
       end
+    end
+
+    private def property_for(predicate : Predicate) : QueryProperty?
+      return if predicate.args.empty?
+      capture_id = predicate.args.find(&.capture?).try { |arg| capture_index_for_name(arg.value) }
+      strings = predicate.args.select(&.string?)
+      key = strings[0]?.try(&.value)
+      return if key.nil?
+      QueryProperty.new(key, strings[1]?.try(&.value), capture_id)
     end
 
     # Whether the given step is the last step of a predicate.

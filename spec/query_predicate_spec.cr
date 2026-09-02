@@ -46,6 +46,28 @@ describe TreeSitter::QueryCursor do
   end
 end
 
+describe TreeSitter::Query do
+  it "separates property settings, property predicates, and general predicates" do
+    language = TreeSitter::Parser.new("go").language
+    source = "((identifier) @name (#set! @name \"scope\" \"local\") (#is? @name \"definition\") (#custom! @name \"marker\"))"
+    query = TreeSitter::Query.new_raw(language, source)
+
+    setting = query.property_settings(0).first
+    setting.key.should eq("scope")
+    setting.value.should eq("local")
+    setting.capture_id.should eq(0)
+
+    property, positive = query.property_predicates(0).first
+    property.key.should eq("definition")
+    property.capture_id.should eq(0)
+    positive.should be_true
+
+    predicate = query.general_predicates(0).first
+    predicate.name.should eq("custom!")
+    predicate.args.should eq([TreeSitter::Predicate::Arg.capture("name"), TreeSitter::Predicate::Arg.string("marker")])
+  end
+end
+
 describe TreeSitter::Predicate do
   it "has a name and arguments" do
     pred = TreeSitter::Predicate.new("eq?", [

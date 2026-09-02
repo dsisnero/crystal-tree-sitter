@@ -1,4 +1,14 @@
 module TreeSitter
+  # A property attached to a query pattern by `#set!`, `#is?`, or `#is-not?`.
+  struct QueryProperty
+    getter key : String
+    getter value : String?
+    getter capture_id : UInt32?
+
+    def initialize(@key, @value, @capture_id)
+    end
+  end
+
   # A `Predicate` represents a parsed query predicate.
   # Predicates are attached to query patterns using S-expression syntax:
   # `(#eq? @capture_name "expected_value")`

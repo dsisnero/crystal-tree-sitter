@@ -50,7 +50,7 @@ existing `parse_with_progress` to a full `parse_with_options`.
 - `Parser#parse_custom_encoding` using the `TSInput.decode`/`TSDecodeFunction` binding from Phase 1.
 - Why here: builds directly on the decode plumbing already landed.
 
-### PHASE 6 — Query predicate/public-accessor API
+### PHASE 6 — Query predicate/public-accessor API ✅
 - `Query#property_predicates`, `Query#property_settings`, `Query#general_predicates`,
   `Query#new_raw`.
 - Refactor the monolithic `predicates_for_pattern` around the granular accessors.
@@ -291,7 +291,7 @@ the plan.**
 | Method | Crystal | Rust (line) | Status |
 |---|---|---|---|
 | `new` | `new` | `lib.rs:2386` | ✅ pre-existing |
-| `new_raw` | — | `lib.rs:2396` | 🔶 Phase 6 |
+| `new_raw` | `new_raw` | `lib.rs:2396` | ✅ |
 | `pattern_count` | `pattern_count` | `lib.rs:2834` | ✅ pre-existing |
 | `capture_count` | `capture_count` | `lib.rs:2840` | ✅ pre-existing |
 | `string_count` | `string_count` | `lib.rs:2841` | ✅ pre-existing |
@@ -302,9 +302,9 @@ the plan.**
 | `capture_quantifier_for_id` | `capture_quantifier_for_id` | `lib.rs:2850` | ✅ |
 | `capture_quantifiers` | `capture_quantifiers_for_pattern` | `lib.rs:2846` | ✅ |
 | `predicates_for_pattern` | `predicates_for_pattern` | `lib.rs:2883` | ✅ pre-existing |
-| `property_predicates` | — | `lib.rs:2863` | 🔶 Phase 6 |
-| `property_settings` | — | `lib.rs:2871` | 🔶 Phase 6 |
-| `general_predicates` | — | `lib.rs:2883` | 🔶 Phase 6 |
+| `property_predicates` | `property_predicates` | `lib.rs:2863` | ✅ |
+| `property_settings` | `property_settings` | `lib.rs:2871` | ✅ |
+| `general_predicates` | `general_predicates` | `lib.rs:2883` | ✅ |
 | `disable_capture` | `disable_capture` | `lib.rs:2892` | ✅ |
 | `disable_pattern` | `disable_pattern` | `lib.rs:2907` | ✅ |
 | `deep_clone` (`ts_query_copy`) | `copy` | `lib.rs:2919` | ✅ |
@@ -394,7 +394,7 @@ implementation → gates: `make test` + `make lint` + `crystal tool format --che
 - [x] **PHASE 3** — parser & cursor options (progress callbacks)
 - [x] **PHASE 4** — UTF-16 text support (`parse_utf16_le/be`, `Node#utf16_text`)
 - [x] **PHASE 5** — custom encoding parse (`Parser#parse_custom_encoding` + decode)
-- [ ] **PHASE 6** — query predicate/public accessor API (`property_predicates`, `property_settings`, `general_predicates`, `new_raw`)
+- [x] **PHASE 6** — query predicate/public accessor API (`property_predicates`, `property_settings`, `general_predicates`, `new_raw`)
 - [ ] **PHASE 7** — parser UX + concurrency examples (`Parser#clone`, `logger` getter, `Channel(Parser)` pool spec)
 - [ ] **PHASE 8** — node & range ergonomics (`Node#range`, `Range#byte_range`, `Node#byte_range` rename)
 - [ ] **PHASE 9** — docs & release-prep sweep; resolve the Cannot-Be-Done items with the user
