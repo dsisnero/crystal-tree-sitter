@@ -8,51 +8,70 @@ Verification: focused query specs pass against vendored tree-sitter `0.27.0`; fu
 
 ---
 
-## Phase 1: v0.27.0 C API Parity
+## How to Read This Plan
 
-New in v0.27.0 that needs binding or is partially missing.
+Each phase is **feature-sized**: one cohesive, shippable feature (mirroring one Rust
+API surface) that leaves the suite green. Phases are ordered by **dependency + value**
+so you don't need to decide what's next — just do the next unchecked phase.
 
-### 1A. New C API Functions (bind missing symbols)
+Legend for the method tables: **✅** done, **🔶#** remaining work lands in phase `#`,
+**❌** cannot be done (see "Cannot Be Done in Crystal" below).
 
-| Function | Crystal Status | Action |
-|---|---|---|
-| `ts_language_is_parseable` | ✅ bound + `Language#parseable?` | Done: bind + method (spec/language_spec.cr) |
-| `ts_language_name` | ✅ already bound | — |
-| `ts_node_eq` | ✅ already bound | — |
-| `ts_point_edit` | ✅ bound + `Point#edit` | Done: bind + `Point#edit(edit, byte) : {Point, UInt32}` (spec/point_edit_spec.cr) |
-| `ts_range_edit` | ✅ bound + `Range#edit` | Done: bind + in-place `Range#edit(edit)` (spec/range_edit_spec.cr) |
-| `ts_node_eq` | ✅ already bound | Used by `Node#==` |
-| `ts_parser_parse_with_options` | ⚠️ partial (`parse_with_progress`) | Add direct bind for full `TSParseOptions` support |
-| `ts_query_cursor_exec_with_options` | ❌ not bound | Bind for `QueryCursorOptions` |
-| `ts_language_copy` | ✅ bound + `Language#copy` | Done: bind + refcounted copy (spec/language_spec.cr) |
-| `ts_language_delete` | ✅ bound | Done: bound (native delete is a no-op; cached instance is process-lifetime) |
+### Done so far
+- PHASE 1 — v0.27.0 single-symbol parity: `Language#parseable?`, `Language#copy`,
+  `Point#edit`, `Range#edit`, `Language#finalize`, `TSInput.decode` field +
+  `TSDecodeFunction` + full `TSInputEncoding` enum.
+- PHASE 2 — Thread-safety contract: `#copy`/`#finalize` on collectable types, the
+  thread-safety model documented on every class.
 
-### 1B. TSInput `decode` Field
+## Phase Order
 
-The v0.27.0 `TSInput` struct has a `decode` field (`TSDecodeFunction`) for custom encodings. The Crystal `TSInput` struct is missing this field.
+> **tldr:** Options structs → text encodings → query predicate API → parser UX → node
+> range ergonomics → concurrency examples → docs.
 
-| Item | Status | Action |
-|---|---|---|
-| `TSDecodeFunction` typedef | ✅ bound | `alias TSDecodeFunction` in `lib_tree_sitter.cr` |
-| `TSInput.decode` field | ✅ added | `decode : TSDecodeFunction` on `TSInput` struct (v0.27.0 layout) |
-| `TSInputEncodingCustom` enum | ✅ added | Enum now `UTF8 / UTF16LE / UTF16BE / Custom` matching C ABI (spec/input_spec.cr) |
+### PHASE 3 — Parser & Cursor Options (progress callbacks)
+Binds the four options structs and the two `*_with_options` entry points; generalizes the
+existing `parse_with_progress` to a full `parse_with_options`.
+- `TSParseState`, `TSParseOptions`, `TSQueryCursorState`, `TSQueryCursorOptions` structs.
+- `ts_parser_parse_with_options`, `ts_query_cursor_exec_with_options`.
+- Expose `Parser#parse_with_options(...)` and `QueryCursor#exec_with_options(...)` progress callbacks.
+- Why first: it is the largest named gap and unblocks the custom-encoding phase.
 
-### 1C. ParseOptions / QueryCursorOptions Structs
+### PHASE 4 — UTF-16 text support
+- `Parser#parse_utf16_le` / `#parse_utf16_be` via `ts_parser_parse_string_encoding`.
+- `Node#utf16_text` (reinterpret node byte range as `UInt16` slice).
+- Why here: no dependency on Phase 3, but small and round-trips with Phase 3's encoding work.
 
-| Item | Status | Action |
-|---|---|---|
-| `TSParseState` struct | ⚠️ used by `parse_with_progress` | Ensure `TSInput.decode` is wired for full options |
-| `TSParseOptions` struct | ⚠️ partial | Add full struct for `ts_parser_parse_with_options` |
-| `TSQueryCursorState` struct | ❌ not bound | Bind for progress callbacks |
-| `TSQueryCursorOptions` struct | ❌ not bound | Bind for query progress callbacks |
+### PHASE 5 — Custom encoding parse
+- `Parser#parse_custom_encoding` using the `TSInput.decode`/`TSDecodeFunction` binding from Phase 1.
+- Why here: builds directly on the decode plumbing already landed.
+
+### PHASE 6 — Query predicate/public-accessor API
+- `Query#property_predicates`, `Query#property_settings`, `Query#general_predicates`,
+  `Query#new_raw`.
+- Refactor the monolithic `predicates_for_pattern` around the granular accessors.
+- Why here: completes the Rust `Query` surface that `predicates_for_pattern` now covers only partially.
+
+### PHASE 7 — Parser UX + thread-safety examples
+- `Parser#clone` (independent parser sharing language), `Parser#logger` getter.
+- `Channel(Parser)` parser-pool example + spawn-per-fiber example as executable specs
+  (resolves the two remaining Phase-2C checkboxes).
+- Why here: independently useful; pairs the concurrency docs with runnable proof.
+
+### PHASE 8 — Node & range ergonomics (Crystal-native)
+- `Node#range` (combined start/end point+byte tuple) — trivial C convenience.
+- `TreeSitter::Range#byte_range : Range(UInt32, UInt32)` (additive).
+- `Node#byte_range` change to `Range(UInt32, UInt32)` — **breaking**; staged last and
+  called out for review before v1.0.
+- Why here: nice-to-have ergonomics, purely additive except the flagged single rename.
+
+### PHASE 9 — Docs & release-prep wrapper
+- Sweep the parity tables to ✅/❌, remove stale "deferred/low-priority" language, add
+  CHANGELOG entries per completed feature, verify gates, tag boundary.
 
 ---
 
-## Phase 2: Thread Safety
-
-Source of truth: Rust binding `unsafe impl Send/Sync` + tree-sitter docs.
-
-### Thread Safety Model (from upstream)
+## Thread Safety Model (from upstream, PHASE 2)
 
 ```
 Thread-safe (immutable/reference-counted):
@@ -62,104 +81,46 @@ Thread-safe (immutable/reference-counted):
   - Node         — value type, references tree
 
 NOT thread-safe (mutable state):
-  - Parser       — must not be shared across threads simultaneously
-  - TreeCursor   — mutable walk state
-  - QueryCursor  — mutable iteration state
-  - LookaheadIterator — mutable iteration state
+  - Parser             — must not be shared across threads simultaneously
+  - TreeCursor         — mutable walk state
+  - QueryCursor        — mutable iteration state
+  - LookaheadIterator  — mutable iteration state
 ```
 
-### 2A. Language: Immutable, Reference-Counted
-
-Rust: `unsafe impl Send for Language {}` + `unsafe impl Sync for Language {}`
-
-Crystal actions:
-- [x] Add `Language#copy` using `ts_language_copy` (returns new reference)
-- [x] Add `Language#finalize` using `ts_language_delete` (release reference)
-- [x] Use `AtomicCounter` or Crystal's GC for reference counting
-- [x] Document: "Language instances are immutable and thread-safe"
-
-### 2B. Tree: Copy for Thread-Safe Sharing
-
-Rust: `unsafe impl Send for Tree {}` + `unsafe impl Sync for Tree {}`
-
-Crystal actions:
-- [x] `Tree#copy` already exists (uses `ts_tree_copy`)
-- [x] Add `Tree#finalize` (already exists)
-- [x] Document: "Use `Tree#copy` before sharing across fibers/threads"
-- [x] Document: "Individual Tree instances are NOT thread-safe"
-
-### 2C. Parser: Not Thread-Safe
-
-Rust: `unsafe impl Send for Parser {}` + `unsafe impl Sync for Parser {}`
-BUT upstream docs say: "Individual Parser instances are not thread safe"
-
-Crystal actions:
-- [x] Document: "Parser instances must not be shared across fibers simultaneously"
-- [ ] Add example: `Channel(Parser)` or spawn-per-thread pattern
-- [ ] Consider adding `Parser#clone` that creates a new independent parser with same language
-
-### 2D. Query: Immutable, Thread-Safe
-
-Rust: `unsafe impl Send for Query {}` + `unsafe impl Sync for Query {}`
-
-Crystal actions:
-- [x] `Query#copy` already exists (uses `ts_query_copy`)
-- [x] Add `Query#finalize` (already exists)
-- [x] Document: "Query instances are immutable and thread-safe"
-
-### 2E. QueryCursor / TreeCursor / LookaheadIterator: Not Thread-Safe
-
-Rust: `unsafe impl Send for QueryCursor {}` + `unsafe impl Sync for QueryCursor {}`
-But these carry mutable state; not safe to share.
-
-Crystal actions:
-- [x] Document: "QueryCursor/TreeCursor/LookaheadIterator must not be shared across fibers"
-- [x] Note: Crystal fibers run on a single thread (event loop), so this is safe by default in typical usage
-
-### 2F. Node: Value Type, Thread-Safe by Copy
-
-Rust: `unsafe impl Send for Node<'_> {}` + `unsafe impl Sync for Node<'_> {}`
-
-Crystal actions:
-- [x] `Node` is already a `struct` (value type, copied on assignment)
-- [x] Document: "Node is a value type; safe to pass between fibers"
-
-### 2G. Thread Safety Summary Table
-
-| Type | Send | Sync | Crystal | Action |
-|---|---|---|---|---|
-| `Language` | ✅ | ✅ | class (reference) | Add refcount via `ts_language_copy`/`ts_language_delete` |
-| `Tree` | ✅ | ✅ | class (pointer) | `copy` exists; document usage |
-| `Parser` | ✅ | ✅ | class (pointer) | Document: not safe to share |
-| `Query` | ✅ | ✅ | class (pointer) | `copy` exists; document usage |
-| `Node` | ✅ | ✅ | struct (value) | Already safe |
-| `TreeCursor` | ✅ | ✅ | class (pointer) | Document: not safe to share |
-| `QueryCursor` | ✅ | ✅ | class (pointer) | Document: not safe to share |
-| `LookaheadIterator` | ✅ | ✅ | class (pointer) | Document: not safe to share |
-
-### 2H. Recommended Usage Patterns
+Recommended usage (see PHASE 7 for executable versions):
 
 ```crystal
-# Pattern 1: Parser per fiber (recommended)
+# Parser per fiber (recommended)
 spawn(name: "parse-worker") do
   parser = Parser.new(language)
   tree = parser.parse(nil, source)
-  tree_copy = tree.copy  # safe to send to another fiber
-  channel.send(tree_copy)
+  channel.send(tree.copy) # copy is safe to share across fibers
 end
 
-# Pattern 2: Channel-based parser pool
+# Channel-based parser pool (PHASE 7 turns this into a spec)
 parser_channel = Channel(Parser).new(capacity: 8)
 8.times { parser_channel.send(Parser.new(language)) }
 
-# Pattern 3: Share immutable Language and Query
-language = Language.new("crystal")
-query = Query.new(language, "(function_def name: (identifier) @name)")
-
-# These are safe to share across fibers:
+# Language and Query are immutable: safe to share across fibers
 spawn { use_query(query) }
 spawn { use_language(language) }
 ```
+
+---
+
+## Cannot Be Done In Crystal (verified against the v0.27.0 C ABI)
+
+These are **not deferred for convenience**; they were checked against the vendored
+`v0.27.0` symbols and cannot be implemented through the C binding. Flagging them here so
+they are never silently dropped. **Ask the user for a decision on each before closing out
+the plan.**
+
+| Gap | Why it cannot be done | Decision needed |
+|---|---|---|
+| `Parser#set_cancellation_flag` / `#cancellation_flag` | Symbol **removed** from tree-sitter; present in no v0.27.0 header or dylib (only existed ≤ v0.26). No binding target exists. | Drop entirely, or track a legacy shim? (recommend: drop) |
+| `Match#satisfies_text_predicates` | The v0.27.0 C ABI **removed** `ts_query_cursor_satisfies_text_predicates`; text predicates are evaluated internally during iteration. Rust's method (lib.rs:3487) is pure-Rust over private query internals — no C symbol to bind. | Implement emulation over public API, or drop? (recommend: drop) |
+| WebAssembly / `wasm` grammars | Parsing WASM needs a WASM engine (wasmtime &c.); Crystal has no built-in runtime, so this would need a C/FFI shim that fundamentally changes the library. | Full shim, optional native-only support, or drop? (recommend: drop; WASM is niche) |
+| `TextProvider` / `Decode` **traits** | Rust **traits** on the Rust (*not* C) surface; a C-ABI binding has no trait concept. Not a missing feature — a Rust-only abstraction. | Document as N/A (recommend: N/A) |
 
 ---
 
@@ -210,7 +171,7 @@ spawn { use_language(language) }
 | `named_descendant_for_point_range` | `named_descendant_for_point_range` | `lib.rs:2027` | ✅ |
 | `descendant_count` | `descendant_count` | `lib.rs:1993` | ✅ |
 | `child_with_descendant` | `child_with_descendant` | `lib.rs:1944` | ✅ |
-| `child_containing_descendant` | — | deprecated | ⚠️ skipped (deprecated) |
+| `child_containing_descendant` | — | deprecated | ❌ removed in v0.27.0 (deprecated upstream) |
 | `field_name_for_child` | `field_name_for_child` | `lib.rs:1812` | ✅ pre-existing |
 | `field_name_for_named_child` | `field_name_for_named_child` | `lib.rs:1821` | ✅ pre-existing |
 | `id` | `id` | `lib.rs:1580` | ✅ |
@@ -219,10 +180,10 @@ spawn { use_language(language) }
 | `grammar_name` (grammar_type) | `grammar_name` | `lib.rs:1612` | ✅ |
 | `language` | `language` | `lib.rs:1621` | ✅ |
 | `byte_range` | `byte_range` | `lib.rs:1710` | ✅ |
-| `range` (combined) | — | `lib.rs:1717` | ⬜ low priority |
+| `range` (combined) | — | `lib.rs:1717` | 🔶 Phase 8 |
 | `to_sexp` (String) | `to_s` (String, auto-generated from IO) | `lib.rs:2036` | ✅ |
 | `utf8_text` | `text` | `lib.rs:2046` | ✅ pre-existing |
-| `utf16_text` | — | `lib.rs:2051` | ⬜ large scope |
+| `utf16_text` | — | `lib.rs:2130` | 🔶 Phase 4 |
 | `walk` | `walk` | `lib.rs:2061` | ✅ pre-existing |
 | `edit` | `NodeEditor` (separate class) | `lib.rs:2073` | ✅ pre-existing |
 | `==` (ts_node_eq) | `==` | `lib.rs:1745` | ✅ |
@@ -289,7 +250,7 @@ spawn { use_language(language) }
 | `next_state` | `next_state` | `lib.rs:658` | ✅ |
 | `lookahead_iterator` | `lookahead_iterator` | `lib.rs:677` | ✅ |
 | `copy` | `copy` | `lib.rs:500` | ✅ (`ts_language_copy` bound + `Language#copy`, spec/language_spec.cr) |
-| `delete` | — | `lib.rs:507` | ⬜ deferred (native delete is a no-op; cached instance is process-lifetime) |
+| `delete` | `finalize` | `lib.rs:507` | ✅ (`ts_language_delete`; native is a no-op for non-WASM; cached instance is process-lifetime) |
 | `is_parseable` | `parseable?` | — | ✅ (`ts_language_is_parseable` bound + `Language#parseable?`, spec/language_spec.cr) |
 | `name` (dynamic) | `name` (static) | — | ✅ (Crystal caches at construction) |
 
@@ -303,21 +264,21 @@ spawn { use_language(language) }
 | `set_language` | `language=` | `lib.rs:735` | ✅ pre-existing |
 | `language` | `language` | `lib.rs:756` | ✅ pre-existing |
 | `set_logger` | `set_logger` | `lib.rs:771` | ✅ |
-| `logger` (getter) | — | `lib.rs:764` | ⬜ low priority |
+| `logger` (getter) | — | `lib.rs:764` | 🔶 Phase 7 |
 | `print_dot_graphs` | `print_dot_graphs` | `lib.rs:822` | ✅ pre-existing |
 | `stop_printing_dot_graphs` | `stop_printing_dot_graphs` | `lib.rs:849` | ✅ |
 | `parse` (string) | `parse`/`parse?` | `lib.rs:864` | ✅ pre-existing |
 | `parse_with` (callback) | `parse`/`parse?` (&block) | `lib.rs:891` | ✅ pre-existing |
-| `parse_utf16_le` / `parse_utf16_be` | — | `lib.rs:984` | ⬜ large scope |
-| `parse_custom_encoding` | — | `lib.rs:1246` | ⬜ large scope |
-| `parse_with_options` (progress) | `parse_with_progress` | `lib.rs:891` | ✅ Crystal-idiomatic |
+| `parse_utf16_le` / `parse_utf16_be` | — | `lib.rs:984` | 🔶 Phase 4 |
+| `parse_custom_encoding` | — | `lib.rs:1246` | 🔶 Phase 5 |
+| `parse_with_options` (progress) | `parse_with_options` | `lib.rs:891` | 🔶 Phase 3 |
 | `reset` | `reset` | `lib.rs:1354` | ✅ pre-existing |
 | `set_included_ranges` | `set_included_ranges` | `lib.rs:1376` | ✅ |
 | `included_ranges` | `included_ranges` | `lib.rs:1403` | ✅ |
 | `set_timeout_micros` | `set_timeout_micros` | — | ✅ |
 | `timeout_micros` | `timeout_micros` | — | ✅ |
-| `set_cancellation_flag` | — | — | ⬜ symbol not in installed library v0.26.9 |
-| `cancellation_flag` | — | — | ⬜ symbol not in installed library v0.26.9 |
+| `set_cancellation_flag` | — | — | ❌ symbol removed in v0.27.0 |
+| `cancellation_flag` | — | — | ❌ symbol removed in v0.27.0 |
 
 ---
 
@@ -326,7 +287,7 @@ spawn { use_language(language) }
 | Method | Crystal | Rust (line) | Status |
 |---|---|---|---|
 | `new` | `new` | `lib.rs:2386` | ✅ pre-existing |
-| `new_raw` | — | `lib.rs:2396` | ⬜ low priority |
+| `new_raw` | — | `lib.rs:2396` | 🔶 Phase 6 |
 | `pattern_count` | `pattern_count` | `lib.rs:2834` | ✅ pre-existing |
 | `capture_count` | `capture_count` | `lib.rs:2840` | ✅ pre-existing |
 | `string_count` | `string_count` | `lib.rs:2841` | ✅ pre-existing |
@@ -337,9 +298,9 @@ spawn { use_language(language) }
 | `capture_quantifier_for_id` | `capture_quantifier_for_id` | `lib.rs:2850` | ✅ |
 | `capture_quantifiers` | `capture_quantifiers_for_pattern` | `lib.rs:2846` | ✅ |
 | `predicates_for_pattern` | `predicates_for_pattern` | `lib.rs:2883` | ✅ pre-existing |
-| `property_predicates` | — | `lib.rs:2863` | ⬜ low priority |
-| `property_settings` | — | `lib.rs:2871` | ⬜ low priority |
-| `general_predicates` | — | `lib.rs:2883` | ⬜ low priority |
+| `property_predicates` | — | `lib.rs:2863` | 🔶 Phase 6 |
+| `property_settings` | — | `lib.rs:2871` | 🔶 Phase 6 |
+| `general_predicates` | — | `lib.rs:2883` | 🔶 Phase 6 |
 | `disable_capture` | `disable_capture` | `lib.rs:2892` | ✅ |
 | `disable_pattern` | `disable_pattern` | `lib.rs:2907` | ✅ |
 | `deep_clone` (`ts_query_copy`) | `copy` | `lib.rs:2919` | ✅ |
@@ -367,11 +328,11 @@ spawn { use_language(language) }
 | `set_containing_point_range` | `set_containing_point_range` | `lib.rs:3278` | ✅ |
 | `set_timeout_micros` | `set_timeout_micros` | — | ✅ |
 | `timeout_micros` | `timeout_micros` | — | ✅ |
-| `exec_with_options` (progress) | — | `lib.rs:3028` | ⬜ Phase 1 |
-| `matches` (stream) | — | `lib.rs:3050` | ⬜ Crystal uses exec+each_match |
-| `captures` (stream) | — | `lib.rs:3142` | ⬜ Crystal uses exec+each_capture |
-| `matches_with_options` | — | `lib.rs:3077` | ⬜ large scope (TSParseOptions) |
-| `captures_with_options` | — | `lib.rs:3168` | ⬜ large scope (TSParseOptions) |
+| `exec_with_options` (progress) | — | `lib.rs:3028` | 🔶 Phase 3 |
+| `matches` (stream) | — | `lib.rs:3050` | ✅ Crystal-idiomatic `exec` + `each_match` |
+| `captures` (stream) | — | `lib.rs:3142` | ✅ Crystal-idiomatic `exec` + `each_capture` |
+| `matches_with_options` | — | `lib.rs:3077` | 🔶 Phase 3 |
+| `captures_with_options` | — | `lib.rs:3168` | 🔶 Phase 3 |
 
 ---
 
@@ -384,7 +345,7 @@ spawn { use_language(language) }
 | `id` | `id` | `lib.rs:3317` | ✅ |
 | `remove` | `remove(cursor)` | `lib.rs:3322` | ✅ |
 | `nodes_for_capture_index` | `nodes_for_capture_index` | `lib.rs:3326` | ✅ |
-| `satisfies_text_predicates` | — | `lib.rs:3353` | ⬜ low priority |
+| `satisfies_text_predicates` | — | `lib.rs:3353` | ❌ no C symbol in v0.27.0 (see "Cannot Be Done In Crystal") |
 
 ---
 
@@ -400,7 +361,7 @@ spawn { use_language(language) }
 
 ---
 
-## Optional: Crystal-Native Range Convenience (not C-API parity)
+## Optional: Crystal-Native Range Convenience (not C-API parity, PHASE 8)
 
 `TreeSitter::Range` is the 2D source span (`start_byte/end_byte/start_point/end_point`)
 that mirrors the C `TSRange` and drives `included_ranges`, `changed_ranges`, and edit
@@ -410,29 +371,32 @@ conflating the two types.
 
 | Addition | Why / sealed with | Status |
 |---|---|---|
-| `TreeSitter::Range#byte_range : Range(UInt32, UInt32)` → `start_byte..end_byte` | Slice `source[range.byte_range]`; additive, leaves `TSRange`/C-API coupling untouched | ⬜ optional |
-| Change `Node#byte_range` to return `Range(UInt32, UInt32)` (currently `Tuple(UInt32, UInt32)` at `node.cr:357`) | Matches Crystal's native slice/iterate idiom; **breaking** change to consider before v1.0 | ⬜ optional |
-| (deferred) `SourceBuffer`/reference-slice helper over a `Range` | Iterate/chunk a byte span | ⬜ optional |
+| `TreeSitter::Range#byte_range : Range(UInt32, UInt32)` → `start_byte..end_byte` | Slice `source[range.byte_range]`; additive, leaves `TSRange`/C-API coupling untouched | 🔶 Phase 8 |
+| Change `Node#byte_range` to return `Range(UInt32, UInt32)` (currently `Tuple(UInt32, UInt32)` at `node.cr:357`) | Matches Crystal's native slice/iterate idiom; **breaking** change to consider before v1.0 | 🔶 Phase 8 (flagged for review) |
+| `SourceBuffer`/reference-slice helper over a `Range` | Iterate/chunk a byte span | 🔶 Phase 8 |
 
 Note: keep `TreeSitter::Range` separate from Crystal's `Range`; only *convert* via the
 helpers above. Do not attempt to make `TreeSitter::Range` itself a Crystal `Range`.
 
 ---
 
-## Remaining Gaps (intentionally deferred)
+## Phase Status Tracker
 
-| Gap | Reason |
-|---|---|
-| UTF16 parse methods | Large scope, niche usage |
-| `parse_custom_encoding`, `Decode` trait | Rust-specific abstraction |
-| `TextProvider` trait | Rust-specific abstraction |
-| `cancellation_flag` / `logger` getter | Symbol not in installed tree-sitter v0.26.9 |
-| `ParseOptions` / `QueryCursorOptions` structs | Large scope; partial coverage via `parse_with_progress` |
-| `property_predicates` / `property_settings` | Existing `predicates_for_pattern` covers most use cases |
-| `Node#range` (combined) | Low priority convenience |
-| `InputEdit::edit_point` / `edit_range` | Phase 1 ✓ done |
-| Crystal-native `Range` conversions | Optional; see "Optional: Crystal-Native Range Convenience" above |
-| Wasm support | Not applicable to Crystal |
+Check off each phase as its feature lands (RED-GREEN TDD: failing spec → minimal
+implementation → gates: `make test` + `make lint` + `crystal tool format --check`).
+
+- [x] **PHASE 1** — v0.27.0 single-symbol parity (parseable?, copy, point/range edit, Language#finalize, TSInput decode field + TSDecodeFunction + full TSInputEncoding)
+- [x] **PHASE 2** — thread-safety docs + copy/finalize contract
+- [ ] **PHASE 3** — parser & cursor options (progress callbacks)
+- [ ] **PHASE 4** — UTF-16 text support (`parse_utf16_le/be`, `Node#utf16_text`)
+- [ ] **PHASE 5** — custom encoding parse (`ts_parser_parse_custom_encoding` + decode)
+- [ ] **PHASE 6** — query predicate/public accessor API (`property_predicates`, `property_settings`, `general_predicates`, `new_raw`)
+- [ ] **PHASE 7** — parser UX + concurrency examples (`Parser#clone`, `logger` getter, `Channel(Parser)` pool spec)
+- [ ] **PHASE 8** — node & range ergonomics (`Node#range`, `Range#byte_range`, `Node#byte_range` rename)
+- [ ] **PHASE 9** — docs & release-prep sweep; resolve the Cannot-Be-Done items with the user
+
+> **Any item not already assigned to a phase and not in "Cannot Be Done In Crystal" has no
+> remaining work (✅) or is assigned above (🔶). Nothing is silently deferred.**
 
 ---
 
