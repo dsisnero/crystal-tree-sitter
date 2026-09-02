@@ -34,7 +34,16 @@ test: config $(GRAMMAR_JSON_LIB) $(GRAMMAR_GO_LIB)
 	XDG_CONFIG_HOME="$(CURDIR)/$(TEST_CONFIG)" $(CRYSTAL) spec $(SPEC_ARGS)
 
 lint:
-	$(CRYSTAL) run bin/ameba $(AMEBARGS)
+	@if [ -x "$(CURDIR)/bin/ameba" ]; then \
+		echo "==> bin/ameba"; \
+		"$(CURDIR)/bin/ameba" -c .ameba.yml $(AMEBARGS); \
+	elif command -v ameba >/dev/null 2>&1; then \
+		echo "==> ameba (PATH)"; \
+		ameba -c .ameba.yml $(AMEBARGS); \
+	else \
+		echo "ameba not found: install it (e.g. ./bin/ameba) or add it to PATH"; \
+		exit 1; \
+	fi
 
 grammars: $(GRAMMAR_JSON_LIB) $(GRAMMAR_GO_LIB)
 
