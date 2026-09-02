@@ -31,7 +31,20 @@ module TreeSitter
   # fibers/threads simultaneously.
   class QueryCursor
     @cursor : LibTreeSitter::TSQueryCursor*
+    @query_options : LibTreeSitter::TSQueryCursorOptions*
+    @progress_callback : ProgressCallback?
     property query : Query
+
+    # State reported to an `#exec_with_options` progress callback.
+    struct ProgressState
+      getter current_byte_offset : UInt32
+
+      def initialize(state : LibTreeSitter::TSQueryCursorState)
+        @current_byte_offset = state.current_byte_offset.to_u32
+      end
+    end
+
+    alias ProgressCallback = Proc(ProgressState, Bool)
 
     # Create a new cursor for executing a given query.
     #
@@ -40,6 +53,8 @@ module TreeSitter
     # to start running the given query on a given syntax node.
     def initialize(@query)
       @cursor = LibTreeSitter.ts_query_cursor_new
+      @query_options = Pointer(LibTreeSitter::TSQueryCursorOptions).null
+      @progress_callback = nil
     end
 
     def finalize
@@ -50,7 +65,22 @@ module TreeSitter
     #
     # Use `#next_capture` to fetch the captures.
     def exec(node : Node)
+      @progress_callback = nil
+      @query_options = Pointer(LibTreeSitter::TSQueryCursorOptions).null
       LibTreeSitter.ts_query_cursor_exec(self, @query, node)
+    end
+
+    # Start running a query with a progress callback. Returning `true` from the
+    # callback stops query execution; subsequent iteration returns no more results.
+    def exec_with_options(node : Node, &progress : ProgressCallback) : Nil
+      @progress_callback = progress
+      @query_options = Pointer(LibTreeSitter::TSQueryCursorOptions).malloc(1)
+      @query_options.value.payload = Box.box(progress)
+      @query_options.value.progress_callback = ->(state : LibTreeSitter::TSQueryCursorState*) do
+        callback = Box(ProgressCallback).unbox(state.value.payload)
+        callback.call(ProgressState.new(state.value))
+      end
+      LibTreeSitter.ts_query_cursor_exec_with_options(self, @query, node, @query_options)
     end
 
     # Start running a given query on a given node.

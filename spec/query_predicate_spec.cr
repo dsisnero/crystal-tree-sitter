@@ -20,6 +20,32 @@ describe TreeSitter::Query do
   end
 end
 
+describe TreeSitter::QueryCursor do
+  describe "#exec_with_options" do
+    it "reports query progress and can cancel execution" do
+      parser = TreeSitter::Parser.new("go")
+      source = String.build do |io|
+        io << "package main\n"
+        10_000.times { |i| io << "func hello#{i}() {}\n" }
+      end
+      tree = parser.parse(nil, source)
+      query = TreeSitter::Query.new(parser.language, "(identifier) @name")
+      cursor = TreeSitter::QueryCursor.new(query)
+      offsets = [] of UInt32
+
+      cursor.exec_with_options(tree.root_node) do |state|
+        offsets << state.current_byte_offset
+        true
+      end
+
+      matches = [] of TreeSitter::Match
+      cursor.each_match { |match| matches << match }
+      offsets.should_not be_empty
+      matches.size.should be < 10_000
+    end
+  end
+end
+
 describe TreeSitter::Predicate do
   it "has a name and arguments" do
     pred = TreeSitter::Predicate.new("eq?", [

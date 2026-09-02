@@ -58,6 +58,19 @@ lib LibTreeSitter
     decode : TSDecodeFunction
   end
 
+  struct TSParseState
+    payload : Void*
+    current_byte_offset : LibC::UInt32T
+    has_error : Bool
+  end
+
+  alias TSParseProgressCallback = Proc(TSParseState*, Bool)
+
+  struct TSParseOptions
+    payload : Void*
+    progress_callback : TSParseProgressCallback
+  end
+
   enum TSLogType
     Parse
     Lex
@@ -225,6 +238,11 @@ lib LibTreeSitter
   # [`decode`]: TSInput::decode
   # [`bytes_read`]: TSInput::read
   fun ts_parser_parse(self : TSParser*, old_tree : TSTree*, input : TSInput) : TSTree*
+
+  # Use the parser to parse text with a progress callback.
+  fun ts_parser_parse_with_options(
+    self : TSParser*, old_tree : TSTree*, input : TSInput, options : TSParseOptions,
+  ) : TSTree*
 
   # Use the parser to parse some source code stored in one contiguous buffer.
   # The first two parameters are the same as in the [`ts_parser_parse`] function
@@ -765,6 +783,22 @@ lib LibTreeSitter
 
   # Start running a given query on a given node.
   fun ts_query_cursor_exec(self : TSQueryCursor*, query : TSQuery*, node : TSNode) : Void
+
+  struct TSQueryCursorState
+    payload : Void*
+    current_byte_offset : LibC::UInt32T
+  end
+
+  alias TSQueryCursorProgressCallback = Proc(TSQueryCursorState*, Bool)
+
+  struct TSQueryCursorOptions
+    payload : Void*
+    progress_callback : TSQueryCursorProgressCallback
+  end
+
+  fun ts_query_cursor_exec_with_options(
+    self : TSQueryCursor*, query : TSQuery*, node : TSNode, options : TSQueryCursorOptions*,
+  ) : Void
 
   # Manage the maximum number of in-progress matches allowed by this query
   # cursor.

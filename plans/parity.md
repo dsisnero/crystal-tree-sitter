@@ -23,13 +23,16 @@ Legend for the method tables: **✅** done, **🔶#** remaining work lands in ph
   `TSDecodeFunction` + full `TSInputEncoding` enum.
 - PHASE 2 — Thread-safety contract: `#copy`/`#finalize` on collectable types, the
   thread-safety model documented on every class.
+- PHASE 3 — Parser & Cursor Options: progress-aware `Parser#parse_with_options`
+  and `QueryCursor#exec_with_options`, including cancellation and ABI option/state
+  bindings.
 
 ## Phase Order
 
 > **tldr:** Options structs → text encodings → query predicate API → parser UX → node
 > range ergonomics → concurrency examples → docs.
 
-### PHASE 3 — Parser & Cursor Options (progress callbacks)
+### PHASE 3 — Parser & Cursor Options (progress callbacks) ✅
 Binds the four options structs and the two `*_with_options` entry points; generalizes the
 existing `parse_with_progress` to a full `parse_with_options`.
 - `TSParseState`, `TSParseOptions`, `TSQueryCursorState`, `TSQueryCursorOptions` structs.

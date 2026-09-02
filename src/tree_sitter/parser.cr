@@ -16,6 +16,23 @@ module TreeSitter
     # Return value must be a Bytes object with the data or nil if there's no more data.
     alias ReadProc = Proc(UInt32, Point, Bytes?)
 
+    # State reported to a `#parse_with_options` progress callback.
+    struct ParseState
+      getter current_byte_offset : UInt32
+      getter has_error : Bool
+
+      def initialize(state : LibTreeSitter::TSParseState)
+        @current_byte_offset = state.current_byte_offset.to_u32
+        @has_error = state.has_error
+      end
+
+      def has_error? : Bool
+        @has_error
+      end
+    end
+
+    alias ParseProgressCallback = Proc(ParseState, Bool)
+
     def initialize(language_name : String)
       initialize(language: Language.new(language_name))
     end
@@ -91,6 +108,35 @@ module TreeSitter
         end
       end
       ptr = LibTreeSitter.ts_parser_parse(to_unsafe, old_tree, input)
+      Tree.new(ptr) if ptr
+    end
+
+    # Parse a UTF-8 string and invoke `progress` periodically. Returning `true`
+    # from the callback cancels parsing and returns `nil`.
+    def parse_with_options(old_tree : Tree?, string : String, &progress : ParseProgressCallback) : Tree?
+      data = {string, progress}
+      input = LibTreeSitter::TSInput.new
+      input.payload = Box.box(data)
+      input.encoding = LibTreeSitter::TSInputEncoding::UTF8
+      input.read = ->(payload : Pointer(Void), index : UInt32, _pos : LibTreeSitter::TSPoint, read : Pointer(UInt32)) do
+        tuple = Box({String, ParseProgressCallback}).unbox(payload)
+        src = tuple[0]
+        if index < src.bytesize
+          slice = src.to_slice[index..]
+          read.value = slice.size.to_u32
+          slice.to_unsafe
+        else
+          read.value = 0
+          Pointer(LibC::Char).null
+        end
+      end
+      options = LibTreeSitter::TSParseOptions.new
+      options.payload = Box.box(progress)
+      options.progress_callback = ->(state : LibTreeSitter::TSParseState*) do
+        callback = Box(ParseProgressCallback).unbox(state.value.payload)
+        callback.call(ParseState.new(state.value))
+      end
+      ptr = LibTreeSitter.ts_parser_parse_with_options(to_unsafe, old_tree, input, options)
       Tree.new(ptr) if ptr
     end
 
