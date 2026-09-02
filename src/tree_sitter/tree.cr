@@ -4,6 +4,9 @@ module TreeSitter
   # A `Tree` represents the syntax tree of an entire source code file. It contains `Node` instances
   # that indicate the structure of the source code. It can also be edited and used to produce a new
   # `Tree` in the event that the source code changes.
+  #
+  # Individual `Tree` instances are not thread-safe. To share a tree across fibers/threads, pass a
+  # copy made with `#copy` (a fast, shallow, reference-counted copy).
   class Tree
     @tree : LibTreeSitter::TSTree*
 

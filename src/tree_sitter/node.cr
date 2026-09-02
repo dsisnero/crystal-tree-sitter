@@ -4,6 +4,9 @@ require "./point.cr"
 module TreeSitter
   # A `Node` represents a single node in the syntax tree. It tracks its start and end positions in
   # the source code, as well as its relation to other nodes like its parent, siblings and children.
+  #
+  # `Node` is a value type (a `struct`) referencing its parent tree, so it is copied on assignment
+  # and safe to pass between fibers/threads as long as the referenced tree is alive.
   struct Node
     @node : LibTreeSitter::TSNode
     @@string_pool = StringPool.new
@@ -510,6 +513,9 @@ module TreeSitter
   end
 
   # A stateful cursor for walking a syntax tree efficiently
+  #
+  # A `TreeCursor` carries mutable walk state and must not be shared across
+  # fibers/threads simultaneously.
   class TreeCursor
     @cursor : LibTreeSitter::TSTreeCursor
 

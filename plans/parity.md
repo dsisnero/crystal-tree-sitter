@@ -74,9 +74,9 @@ Rust: `unsafe impl Send for Language {}` + `unsafe impl Sync for Language {}`
 
 Crystal actions:
 - [x] Add `Language#copy` using `ts_language_copy` (returns new reference)
-- [ ] Add `Language#finalize` using `ts_language_delete` (release reference)
+- [x] Add `Language#finalize` using `ts_language_delete` (release reference)
 - [x] Use `AtomicCounter` or Crystal's GC for reference counting
-- [ ] Document: "Language instances are immutable and thread-safe"
+- [x] Document: "Language instances are immutable and thread-safe"
 
 ### 2B. Tree: Copy for Thread-Safe Sharing
 
@@ -84,9 +84,9 @@ Rust: `unsafe impl Send for Tree {}` + `unsafe impl Sync for Tree {}`
 
 Crystal actions:
 - [x] `Tree#copy` already exists (uses `ts_tree_copy`)
-- [ ] Add `Tree#finalize` (already exists)
-- [ ] Document: "Use `Tree#copy` before sharing across fibers/threads"
-- [ ] Document: "Individual Tree instances are NOT thread-safe"
+- [x] Add `Tree#finalize` (already exists)
+- [x] Document: "Use `Tree#copy` before sharing across fibers/threads"
+- [x] Document: "Individual Tree instances are NOT thread-safe"
 
 ### 2C. Parser: Not Thread-Safe
 
@@ -94,7 +94,7 @@ Rust: `unsafe impl Send for Parser {}` + `unsafe impl Sync for Parser {}`
 BUT upstream docs say: "Individual Parser instances are not thread safe"
 
 Crystal actions:
-- [ ] Document: "Parser instances must not be shared across fibers simultaneously"
+- [x] Document: "Parser instances must not be shared across fibers simultaneously"
 - [ ] Add example: `Channel(Parser)` or spawn-per-thread pattern
 - [ ] Consider adding `Parser#clone` that creates a new independent parser with same language
 
@@ -104,8 +104,8 @@ Rust: `unsafe impl Send for Query {}` + `unsafe impl Sync for Query {}`
 
 Crystal actions:
 - [x] `Query#copy` already exists (uses `ts_query_copy`)
-- [ ] Add `Query#finalize` (already exists)
-- [ ] Document: "Query instances are immutable and thread-safe"
+- [x] Add `Query#finalize` (already exists)
+- [x] Document: "Query instances are immutable and thread-safe"
 
 ### 2E. QueryCursor / TreeCursor / LookaheadIterator: Not Thread-Safe
 
@@ -113,8 +113,8 @@ Rust: `unsafe impl Send for QueryCursor {}` + `unsafe impl Sync for QueryCursor 
 But these carry mutable state; not safe to share.
 
 Crystal actions:
-- [ ] Document: "QueryCursor/TreeCursor/LookaheadIterator must not be shared across fibers"
-- [ ] Note: Crystal fibers run on a single thread (event loop), so this is safe by default in typical usage
+- [x] Document: "QueryCursor/TreeCursor/LookaheadIterator must not be shared across fibers"
+- [x] Note: Crystal fibers run on a single thread (event loop), so this is safe by default in typical usage
 
 ### 2F. Node: Value Type, Thread-Safe by Copy
 
@@ -122,7 +122,7 @@ Rust: `unsafe impl Send for Node<'_> {}` + `unsafe impl Sync for Node<'_> {}`
 
 Crystal actions:
 - [x] `Node` is already a `struct` (value type, copied on assignment)
-- [ ] Document: "Node is a value type; safe to pass between fibers"
+- [x] Document: "Node is a value type; safe to pass between fibers"
 
 ### 2G. Thread Safety Summary Table
 

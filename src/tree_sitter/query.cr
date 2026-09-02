@@ -5,6 +5,8 @@ module TreeSitter
   # that matches a certain set of nodes in a syntax tree. The expression to match a
   # given node consists of a pair of parentheses containing two things: the node's type,
   # and optionally, a series of other S-expressions that match the node's children.
+  #
+  # `Query` instances are immutable after creation and safe to share across fibers/threads.
   class Query
     @query : LibTreeSitter::TSQuery*
     @capture_names : Array(String)

@@ -9,6 +9,9 @@ module TreeSitter
   # lookahead iterator on its first leaf node state. For MISSING nodes, a
   # lookahead iterator created on the previous non-extra leaf node may be
   # appropriate.
+  #
+  # A `LookaheadIterator` carries mutable iteration state and must not be shared
+  # across fibers/threads simultaneously.
   class LookaheadIterator
     include Iterator(UInt16)
 

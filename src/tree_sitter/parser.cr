@@ -4,6 +4,9 @@ require "./tree"
 module TreeSitter
   # A `Parser` is a stateful object that can be assigned a `Language` and used to produce a `Tree`
   # based on some source code.
+  #
+  # A `Parser` carries mutable parse state and must not be shared across fibers/threads
+  # simultaneously. Create a fresh `Parser` per fiber (or guard it with a lock / channel).
   class Parser
     @parser : LibTreeSitter::TSParser*
 

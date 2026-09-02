@@ -26,6 +26,9 @@ module TreeSitter
   end
 
   # A stateful object for executing a query on a syntax tree.
+  #
+  # A `QueryCursor` carries mutable iteration state and must not be shared across
+  # fibers/threads simultaneously.
   class QueryCursor
     @cursor : LibTreeSitter::TSQueryCursor*
     property query : Query
