@@ -15,7 +15,7 @@ module TreeSitter
     @capture_count : UInt32
     @string_count : UInt32
 
-    def initialize(language : Language, source : String)
+    def initialize(language : Language, source : String, validate_predicates = true)
       query = LibTreeSitter.ts_query_new(language, source, source.bytesize, out error_offset, out error_type)
       if error_type.none?
         @query = query
@@ -33,11 +33,12 @@ module TreeSitter
         ptr = LibTreeSitter.ts_query_string_value_for_id(to_unsafe, i.to_u32, out strlen)
         TreeSitter.string_pool.get(ptr, strlen)
       end
+      validate_predicates! if validate_predicates
     end
 
     # Construct a query without Rust-specific predicate validation.
     def self.new_raw(language : Language, source : String) : Query
-      new(language, source)
+      new(language, source, false)
     end
 
     protected def initialize(@query : LibTreeSitter::TSQuery*)
@@ -260,6 +261,30 @@ module TreeSitter
       key = strings[0]?.try(&.value)
       return if key.nil?
       QueryProperty.new(key, strings[1]?.try(&.value), capture_id)
+    end
+
+    private def validate_predicates! : Nil
+      pattern_count.times { |i| predicates_for_pattern(i.to_u32).each { |predicate| validate_predicate!(predicate) } }
+    end
+
+    # ameba:disable Metrics/CyclomaticComplexity -- mirrors Tree-sitter's built-in predicate families.
+    private def validate_predicate!(predicate : Predicate) : Nil
+      args = predicate.args
+      case predicate.name
+      when "eq?", "not-eq?", "any-eq?", "any-not-eq?"
+        invalid_predicate! unless args.size == 2 && args[0].capture?
+      when "match?", "not-match?", "any-match?", "any-not-match?"
+        invalid_predicate! unless args.size == 2 && args[0].capture? && args[1].string?
+      when "any-of?", "not-any-of?"
+        invalid_predicate! unless args.size >= 1 && args[0].capture? && args[1..].all?(&.string?)
+      when "set!", "is?", "is-not?"
+        strings = args.count(&.string?)
+        invalid_predicate! unless (1..3).includes?(args.size) && args.count(&.capture?) <= 1 && (1..2).includes?(strings)
+      end
+    end
+
+    private def invalid_predicate! : NoReturn
+      raise QueryError.new(0_u32, QueryError::Kind::Syntax)
     end
 
     # Whether the given step is the last step of a predicate.

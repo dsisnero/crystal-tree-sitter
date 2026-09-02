@@ -39,6 +39,13 @@ describe TreeSitter::Parser do
     TreeSitter::Parser.new("json").parse_utf16_be(nil, source).not_nil!.root_node.type.should eq("document")
   end
 
+  it "preserves UTF-16 surrogate pairs in node text" do
+    source = Slice(UInt16).new(7) { |i| [91u16, 34u16, 0xd83du16, 0xde00u16, 34u16, 93u16, 10u16][i] }
+    tree = TreeSitter::Parser.new("json").parse_utf16_le(nil, source).not_nil!
+
+    tree.root_node.named_child(0).not_nil!.utf16_text(source).to_a.should eq(source[0, 6].to_a)
+  end
+
   it "clones into an independent parser with the same language" do
     parser = TreeSitter::Parser.new("json")
     clone = parser.clone

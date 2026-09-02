@@ -118,8 +118,52 @@ end
 ### Progress Callback
 
 ```crystal
-parser.parse_with_progress(tree, source) do |byte_offset|
-  puts "parsing at byte #{byte_offset}"
+tree = parser.parse_with_options(nil, source) do |state|
+  puts "parsing at byte #{state.current_byte_offset}"
+  false # return true to cancel parsing
+end
+```
+
+### UTF-16 and Custom Encodings
+
+```crystal
+utf16 = Slice(UInt16).new(3) { |i| [91u16, 49u16, 93u16][i] } # "[1]"
+tree = parser.parse_utf16_le(nil, utf16).not_nil!
+puts tree.root_node.named_child(0).not_nil!.utf16_text(utf16).to_a
+
+decoder = ->(bytes : UInt8*, _length : UInt32, code_point : Int32*) : UInt32 {
+  code_point.value = bytes[0].to_i32
+  1_u32
+}
+tree = parser.parse_custom_encoding(nil, "[1]".to_slice, decoder)
+```
+
+### Query Properties and Ranges
+
+```crystal
+source = "[1]"
+tree = parser.parse(nil, source).not_nil!
+query = TreeSitter::Query.new(parser.language, "((number) @value (#set! @value \"scope\" \"constant\"))")
+property = query.property_settings(0).first
+puts property.key # scope
+
+node = tree.root_node
+puts source[node.range.byte_range] # Tree-sitter byte spans are end-exclusive
+```
+
+### Safe Parser Concurrency
+
+Create one parser per fiber, or keep parsers in a channel so a parser is used by
+only one fiber at a time. `Language`, `Query`, and copied trees can be shared.
+
+```crystal
+pool = Channel(TreeSitter::Parser).new(1)
+pool.send(TreeSitter::Parser.new("json"))
+
+spawn do
+  worker = pool.receive
+  tree = worker.parse(nil, "[1]")
+  pool.send(worker)
 end
 ```
 

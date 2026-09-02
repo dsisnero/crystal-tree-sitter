@@ -18,6 +18,14 @@ describe TreeSitter::Query do
       predicates.should be_empty
     end
   end
+
+  it "validates malformed built-in predicates while new_raw permits them" do
+    language = TreeSitter::Parser.new("go").language
+    source = "((identifier) @name (#match? \"not-a-capture\" \".*\"))"
+
+    expect_raises(TreeSitter::QueryError) { TreeSitter::Query.new(language, source) }
+    TreeSitter::Query.new_raw(language, source).pattern_count.should eq(1)
+  end
 end
 
 describe TreeSitter::QueryCursor do
