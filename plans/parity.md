@@ -112,19 +112,18 @@ spawn { use_language(language) }
 
 ---
 
-## Cannot Be Done In Crystal (verified against the v0.27.0 C ABI)
+## C-ABI Exclusions (decisions recorded)
 
 These are **not deferred for convenience**; they were checked against the vendored
-`v0.27.0` symbols and cannot be implemented through the C binding. Flagging them here so
-they are never silently dropped. **Ask the user for a decision on each before closing out
-the plan.**
+`v0.27.0` symbols and cannot be implemented through the C binding. The following
+user-approved decisions keep the native binding focused and make every divergence explicit.
 
-| Gap | Why it cannot be done | Decision needed |
+| Gap | Why it cannot be done | Decision and rationale |
 |---|---|---|
-| `Parser#set_cancellation_flag` / `#cancellation_flag` | Symbol **removed** from tree-sitter; present in no v0.27.0 header or dylib (only existed ≤ v0.26). No binding target exists. | Drop entirely, or track a legacy shim? (recommend: drop) |
-| `Match#satisfies_text_predicates` | The v0.27.0 C ABI **removed** `ts_query_cursor_satisfies_text_predicates`; text predicates are evaluated internally during iteration. Rust's method (lib.rs:3487) is pure-Rust over private query internals — no C symbol to bind. | Implement emulation over public API, or drop? (recommend: drop) |
-| WebAssembly / `wasm` grammars | Parsing WASM needs a WASM engine (wasmtime &c.); Crystal has no built-in runtime, so this would need a C/FFI shim that fundamentally changes the library. | Full shim, optional native-only support, or drop? (recommend: drop; WASM is niche) |
-| `TextProvider` / `Decode` **traits** | Rust **traits** on the Rust (*not* C) surface; a C-ABI binding has no trait concept. Not a missing feature — a Rust-only abstraction. | Document as N/A (recommend: N/A) |
+| `Parser#set_cancellation_flag` / `#cancellation_flag` | Symbol **removed** from tree-sitter; present in no v0.27.0 header or dylib (only existed ≤ v0.26). | **Drop.** Recreating it would require an obsolete/patched native library or unsafe shared-pointer state. `Parser#parse_with_options` provides supported cancellation through its progress callback. |
+| `Match#satisfies_text_predicates` | The v0.27.0 C ABI **removed** `ts_query_cursor_satisfies_text_predicates`; Rust's method uses private Rust query internals. | **Drop the exact API.** An emulation needs a Crystal predicate engine, source-text provider, regex semantics, and a new explicit API. Add that later only if a consumer such as the highlighter needs it. |
+| WebAssembly / `wasm` grammars | Parsing WASM needs a WASM engine (wasmtime &c.); Crystal has no built-in runtime. | **Drop.** A production implementation needs runtime FFI, ABI adapters, lifecycle/error handling, cross-platform packaging, and resource limits. Native grammars cover this binding's intended use. |
+| `TextProvider` / `Decode` **traits** | Rust **traits** on the Rust (*not* C) surface; a C-ABI binding has no trait concept. | **N/A.** Crystal uses idiomatic blocks/procs, `IO`, `Bytes`, `Slice(UInt16)`, and explicit decoder callbacks; the library already exposes those alternatives. |
 
 ---
 
@@ -397,7 +396,7 @@ implementation → gates: `make test` + `make lint` + `crystal tool format --che
 - [x] **PHASE 6** — query predicate/public accessor API (`property_predicates`, `property_settings`, `general_predicates`, `new_raw`)
 - [x] **PHASE 7** — parser UX + concurrency examples (`Parser#clone`, `logger` getter, `Channel(Parser)` pool spec)
 - [x] **PHASE 8** — node & range ergonomics (`Node#range`, `Range#byte_range`; preserve compatible `Node#byte_range` tuple)
-- [ ] **PHASE 9** — docs & release-prep sweep; resolve the Cannot-Be-Done items with the user
+- [x] **PHASE 9** — docs & release-prep sweep; C-ABI exclusions resolved by user decision
 
 > **Any item not already assigned to a phase and not in "Cannot Be Done In Crystal" has no
 > remaining work (✅) or is assigned above (🔶). Nothing is silently deferred.**

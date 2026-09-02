@@ -21,15 +21,11 @@ module TreeSitter
     # State reported to a `#parse_with_options` progress callback.
     struct ParseState
       getter current_byte_offset : UInt32
-      getter has_error : Bool
+      getter? has_error : Bool
 
       def initialize(state : LibTreeSitter::TSParseState)
         @current_byte_offset = state.current_byte_offset.to_u32
         @has_error = state.has_error
-      end
-
-      def has_error? : Bool
-        @has_error
       end
     end
 
