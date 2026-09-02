@@ -56,7 +56,7 @@ existing `parse_with_progress` to a full `parse_with_options`.
 - Refactor the monolithic `predicates_for_pattern` around the granular accessors.
 - Why here: completes the Rust `Query` surface that `predicates_for_pattern` now covers only partially.
 
-### PHASE 7 — Parser UX + thread-safety examples
+### PHASE 7 — Parser UX + thread-safety examples ✅
 - `Parser#clone` (independent parser sharing language), `Parser#logger` getter.
 - `Channel(Parser)` parser-pool example + spawn-per-fiber example as executable specs
   (resolves the two remaining Phase-2C checkboxes).
@@ -268,7 +268,7 @@ the plan.**
 | `set_language` | `language=` | `lib.rs:735` | ✅ pre-existing |
 | `language` | `language` | `lib.rs:756` | ✅ pre-existing |
 | `set_logger` | `set_logger` | `lib.rs:771` | ✅ |
-| `logger` (getter) | — | `lib.rs:764` | 🔶 Phase 7 |
+| `logger` (getter) | `logger` | `lib.rs:764` | ✅ |
 | `print_dot_graphs` | `print_dot_graphs` | `lib.rs:822` | ✅ pre-existing |
 | `stop_printing_dot_graphs` | `stop_printing_dot_graphs` | `lib.rs:849` | ✅ |
 | `parse` (string) | `parse`/`parse?` | `lib.rs:864` | ✅ pre-existing |
@@ -395,7 +395,7 @@ implementation → gates: `make test` + `make lint` + `crystal tool format --che
 - [x] **PHASE 4** — UTF-16 text support (`parse_utf16_le/be`, `Node#utf16_text`)
 - [x] **PHASE 5** — custom encoding parse (`Parser#parse_custom_encoding` + decode)
 - [x] **PHASE 6** — query predicate/public accessor API (`property_predicates`, `property_settings`, `general_predicates`, `new_raw`)
-- [ ] **PHASE 7** — parser UX + concurrency examples (`Parser#clone`, `logger` getter, `Channel(Parser)` pool spec)
+- [x] **PHASE 7** — parser UX + concurrency examples (`Parser#clone`, `logger` getter, `Channel(Parser)` pool spec)
 - [ ] **PHASE 8** — node & range ergonomics (`Node#range`, `Range#byte_range`, `Node#byte_range` rename)
 - [ ] **PHASE 9** — docs & release-prep sweep; resolve the Cannot-Be-Done items with the user
 

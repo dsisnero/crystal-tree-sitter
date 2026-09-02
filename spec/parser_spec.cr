@@ -38,4 +38,49 @@ describe TreeSitter::Parser do
     TreeSitter::Parser.new("json").parse_utf16_le(nil, source).not_nil!.root_node.type.should eq("document")
     TreeSitter::Parser.new("json").parse_utf16_be(nil, source).not_nil!.root_node.type.should eq("document")
   end
+
+  it "clones into an independent parser with the same language" do
+    parser = TreeSitter::Parser.new("json")
+    clone = parser.clone
+
+    clone.should_not be(parser)
+    clone.language.name.should eq("json")
+    clone.parse(nil, "[1]").not_nil!.root_node.type.should eq("document")
+  end
+
+  it "reports whether a logger has been configured" do
+    parser = TreeSitter::Parser.new("json")
+    parser.logger.should be_nil
+
+    parser.set_logger { |_type, _message| }
+    parser.logger.should_not be_nil
+    parser.stop_logging
+    parser.logger.should be_nil
+  end
+
+  it "supports a channel-based parser pool" do
+    parsers = Channel(TreeSitter::Parser).new(1)
+    results = Channel(String).new(1)
+    parsers.send(TreeSitter::Parser.new("json"))
+
+    spawn do
+      parser = parsers.receive
+      results.send(parser.parse(nil, "[1]").not_nil!.root_node.type)
+      parsers.send(parser)
+    end
+
+    results.receive.should eq("document")
+    parsers.receive.language.name.should eq("json")
+  end
+
+  it "supports an independent parser per fiber" do
+    results = Channel(String).new(1)
+
+    spawn do
+      parser = TreeSitter::Parser.new("json")
+      results.send(parser.parse(nil, "[null]").not_nil!.root_node.type)
+    end
+
+    results.receive.should eq("document")
+  end
 end

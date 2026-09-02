@@ -9,12 +9,14 @@ module TreeSitter
   # simultaneously. Create a fresh `Parser` per fiber (or guard it with a lock / channel).
   class Parser
     @parser : LibTreeSitter::TSParser*
+    @logger : LoggerCallback?
 
     # Used on `Parser#parse` method, the 2 parameters are
     # - byte index
     # - position
     # Return value must be a Bytes object with the data or nil if there's no more data.
     alias ReadProc = Proc(UInt32, Point, Bytes?)
+    alias LoggerCallback = Proc(LibTreeSitter::TSLogType, String, Nil)
 
     # State reported to a `#parse_with_options` progress callback.
     struct ParseState
@@ -40,6 +42,7 @@ module TreeSitter
     # Create a new parser.
     def initialize(*, language : Language? = nil)
       @parser = LibTreeSitter.ts_parser_new
+      @logger = nil
       self.language = language if language
     end
 
@@ -64,6 +67,12 @@ module TreeSitter
       raise Error.new("Parser without language!") if ptr.null?
 
       Language.new(ptr)
+    end
+
+    # Create an independent parser configured with this parser's language.
+    # Mutable parser state, included ranges, and logger are intentionally not copied.
+    def clone : Parser
+      Parser.new(language: language)
     end
 
     def parse?(old_tree : Tree?, io : IO) : Tree?
@@ -285,6 +294,7 @@ module TreeSitter
     # previously assigned, the caller is responsible for releasing any memory
     # owned by the previous logger.
     def set_logger(&block : (LibTreeSitter::TSLogType, String) -> Nil) : Nil
+      @logger = block
       payload = Box.box(block)
       logger = LibTreeSitter::TSLogger.new
       logger.payload = payload
@@ -295,8 +305,14 @@ module TreeSitter
       LibTreeSitter.ts_parser_set_logger(to_unsafe, logger)
     end
 
+    # Return the configured Crystal logger callback, if any.
+    def logger : LoggerCallback?
+      @logger
+    end
+
     # Stop the parsing logger, disabling any log output.
     def stop_logging : Nil
+      @logger = nil
       logger = LibTreeSitter::TSLogger.new
       logger.payload = Pointer(Void).null
       logger.log = ->(_p : Void*, _type : LibTreeSitter::TSLogType, _msg : LibC::Char*) { }
