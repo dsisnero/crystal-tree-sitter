@@ -51,6 +51,25 @@ describe TreeSitter::QueryCursor do
       offsets.should_not be_empty
       matches.size.should be < 10_000
     end
+
+    it "continues to yield matches when progress returns false" do
+      parser = TreeSitter::Parser.new("go")
+      source = String.build do |io|
+        io << "package main\n"
+        1_000.times { |i| io << "func item#{i}() {}\n" }
+      end
+      tree = parser.parse(nil, source).not_nil!
+      query = TreeSitter::Query.new(parser.language, "(identifier) @name")
+      cursor = TreeSitter::QueryCursor.new(query)
+      offsets = [] of UInt32
+
+      cursor.exec_with_options(tree.root_node) { |state| offsets << state.current_byte_offset; false }
+      matches = [] of TreeSitter::Match
+      cursor.each_match { |match| matches << match }
+
+      offsets.should_not be_empty
+      matches.size.should eq(1_000)
+    end
   end
 end
 

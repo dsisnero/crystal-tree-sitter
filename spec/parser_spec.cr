@@ -65,6 +65,15 @@ describe TreeSitter::Parser do
     parser.logger.should be_nil
   end
 
+  it "dispatches configured logger callbacks during parsing" do
+    messages = [] of String
+    parser = TreeSitter::Parser.new("json")
+    parser.set_logger { |_type, message| messages << message }
+
+    parser.parse(nil, "[1]")
+    messages.should_not be_empty
+  end
+
   it "supports a channel-based parser pool" do
     parsers = Channel(TreeSitter::Parser).new(1)
     results = Channel(String).new(1)

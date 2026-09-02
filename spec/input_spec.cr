@@ -44,4 +44,15 @@ describe TreeSitter::Parser do
     tree = parser.parse_custom_encoding(nil, "[1]".to_slice, decoder)
     tree.not_nil!.root_node.type.should eq("document")
   end
+
+  it "handles an invalid custom code point without crashing" do
+    decoder = ->(_bytes : UInt8*, _length : UInt32, code_point : Int32*) : UInt32 {
+      code_point.value = -1
+      1_u32
+    }
+
+    tree = TreeSitter::Parser.new("json").parse_custom_encoding(nil, "[1]".to_slice, decoder)
+    tree.should_not be_nil
+    tree.not_nil!.root_node.has_error?.should be_true
+  end
 end
