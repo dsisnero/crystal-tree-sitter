@@ -44,7 +44,7 @@ module TreeSitter
     def named_child(index : Int32) : Node?
       raise IndexError.new if index < 0 || index >= named_child_count
       node = LibTreeSitter.ts_node_named_child(to_unsafe, index)
-      return nil if LibTreeSitter.ts_node_is_null(node)
+      return if LibTreeSitter.ts_node_is_null(node)
       Node.new_unsafe(node)
     end
 
@@ -82,13 +82,13 @@ module TreeSitter
     # Prefer `#child_with_descendant` for iterating over ancestors.
     def parent : Node?
       parent_node = LibTreeSitter.ts_node_parent(self)
-      return nil if LibTreeSitter.ts_node_is_null(parent_node)
+      return if LibTreeSitter.ts_node_is_null(parent_node)
       Node.new_unsafe(parent_node)
     end
 
     def child_with_descendant(descendant : Node) : Node?
       node = LibTreeSitter.ts_node_child_with_descendant(self, descendant)
-      return nil if LibTreeSitter.ts_node_is_null(node)
+      return if LibTreeSitter.ts_node_is_null(node)
       Node.new_unsafe(node)
     end
 
@@ -206,14 +206,14 @@ module TreeSitter
     # Get the smallest node within this node that spans the given byte range.
     def descendant(start_byte : UInt32, end_byte : UInt32) : Node?
       ptr = LibTreeSitter.ts_node_descendant_for_byte_range(to_unsafe, start_byte, end_byte)
-      return nil if LibTreeSitter.ts_node_is_null(ptr)
+      return if LibTreeSitter.ts_node_is_null(ptr)
       Node.new_unsafe(ptr)
     end
 
     # Get the smallest node within this node that spans the given point range.
     def descendant(start_point : Point, end_point : Point) : Node?
       ptr = LibTreeSitter.ts_node_descendant_for_point_range(to_unsafe, start_point, end_point)
-      return nil if LibTreeSitter.ts_node_is_null(ptr)
+      return if LibTreeSitter.ts_node_is_null(ptr)
       Node.new_unsafe(ptr)
     end
 
@@ -224,34 +224,34 @@ module TreeSitter
     # Get the node's next sibling.
     def next_sibling : Node?
       node = LibTreeSitter.ts_node_next_sibling(self)
-      return nil if LibTreeSitter.ts_node_is_null(node)
+      return if LibTreeSitter.ts_node_is_null(node)
       Node.new_unsafe(node)
     end
 
     # Get the node's previous sibling.
     def prev_sibling : Node?
       node = LibTreeSitter.ts_node_prev_sibling(self)
-      return nil if LibTreeSitter.ts_node_is_null(node)
+      return if LibTreeSitter.ts_node_is_null(node)
       Node.new_unsafe(node)
     end
 
     # Get the node's next named sibling.
     def next_named_sibling : Node?
       node = LibTreeSitter.ts_node_next_named_sibling(self)
-      return nil if LibTreeSitter.ts_node_is_null(node)
+      return if LibTreeSitter.ts_node_is_null(node)
       Node.new_unsafe(node)
     end
 
     # Get the node's previous named sibling.
     def prev_named_sibling : Node?
       node = LibTreeSitter.ts_node_prev_named_sibling(self)
-      return nil if LibTreeSitter.ts_node_is_null(node)
+      return if LibTreeSitter.ts_node_is_null(node)
       Node.new_unsafe(node)
     end
 
     # Check if the node is a syntax error. Syntax errors represent parts of the
     # code that could not be incorporated into a valid syntax tree.
-    def is_error? : Bool
+    def error? : Bool
       LibTreeSitter.ts_node_is_error(self)
     end
 
@@ -260,7 +260,7 @@ module TreeSitter
     # See also `#child_by_field_name`
     def child_by_field_id(field_id : UInt16) : Node?
       node = LibTreeSitter.ts_node_child_by_field_id(self, field_id)
-      return nil if LibTreeSitter.ts_node_is_null(node)
+      return if LibTreeSitter.ts_node_is_null(node)
       Node.new_unsafe(node)
     end
 
@@ -272,35 +272,35 @@ module TreeSitter
     # Get the node's child with the given field name.
     def child_by_field_name(field_name : String) : Node?
       node = LibTreeSitter.ts_node_child_by_field_name(self, field_name, field_name.bytesize.to_u32)
-      return nil if LibTreeSitter.ts_node_is_null(node)
+      return if LibTreeSitter.ts_node_is_null(node)
       Node.new_unsafe(node)
     end
 
     # Get the field name of this node's child at the given index.
     def field_name_for_child(child_index : UInt32) : String?
       ptr = LibTreeSitter.ts_node_field_name_for_child(self, child_index)
-      return nil if ptr.null?
+      return if ptr.null?
       @@string_pool.get(ptr, LibC.strlen(ptr))
     end
 
     # Get the field name of this node's named child at the given index.
     def field_name_for_named_child(named_child_index : UInt32) : String?
       ptr = LibTreeSitter.ts_node_field_name_for_named_child(self, named_child_index)
-      return nil if ptr.null?
+      return if ptr.null?
       @@string_pool.get(ptr, LibC.strlen(ptr))
     end
 
     # Get the smallest node within this node that spans the given byte range.
     def descendant_for_byte_range(start_byte : UInt32, end_byte : UInt32) : Node?
       node = LibTreeSitter.ts_node_descendant_for_byte_range(self, start_byte, end_byte)
-      return nil if LibTreeSitter.ts_node_is_null(node)
+      return if LibTreeSitter.ts_node_is_null(node)
       Node.new_unsafe(node)
     end
 
     # Get the smallest node within this node that spans the given point range.
     def descendant_for_point_range(start_point : Point, end_point : Point) : Node?
       node = LibTreeSitter.ts_node_descendant_for_point_range(self, start_point, end_point)
-      return nil if LibTreeSitter.ts_node_is_null(node)
+      return if LibTreeSitter.ts_node_is_null(node)
       Node.new_unsafe(node)
     end
 
@@ -323,14 +323,14 @@ module TreeSitter
     # Get the node's first child that contains or starts after the given byte offset.
     def first_child_for_byte(byte : UInt32) : Node?
       node = LibTreeSitter.ts_node_first_child_for_byte(self, byte)
-      return nil if LibTreeSitter.ts_node_is_null(node)
+      return if LibTreeSitter.ts_node_is_null(node)
       Node.new_unsafe(node)
     end
 
     # Get the node's first named child that contains or starts after the given byte offset.
     def first_named_child_for_byte(byte : UInt32) : Node?
       node = LibTreeSitter.ts_node_first_named_child_for_byte(self, byte)
-      return nil if LibTreeSitter.ts_node_is_null(node)
+      return if LibTreeSitter.ts_node_is_null(node)
       Node.new_unsafe(node)
     end
 
@@ -342,14 +342,14 @@ module TreeSitter
     # Get the smallest named node within this node that spans the given byte range.
     def named_descendant_for_byte_range(start_byte : UInt32, end_byte : UInt32) : Node?
       node = LibTreeSitter.ts_node_named_descendant_for_byte_range(self, start_byte, end_byte)
-      return nil if LibTreeSitter.ts_node_is_null(node)
+      return if LibTreeSitter.ts_node_is_null(node)
       Node.new_unsafe(node)
     end
 
     # Get the smallest named node within this node that spans the given point range.
     def named_descendant_for_point_range(start_point : Point, end_point : Point) : Node?
       node = LibTreeSitter.ts_node_named_descendant_for_point_range(self, start_point, end_point)
-      return nil if LibTreeSitter.ts_node_is_null(node)
+      return if LibTreeSitter.ts_node_is_null(node)
       Node.new_unsafe(node)
     end
 
@@ -531,14 +531,14 @@ module TreeSitter
     # Get the cursor's current node
     def current_node : Node?
       node = LibTreeSitter.ts_tree_cursor_current_node(pointerof(@cursor))
-      return nil if LibTreeSitter.ts_node_is_null(node)
+      return if LibTreeSitter.ts_node_is_null(node)
       Node.new_unsafe(node)
     end
 
     # Get the field name of the cursor's current node
     def current_field_name : String?
       ptr = LibTreeSitter.ts_tree_cursor_current_field_name(pointerof(@cursor))
-      return nil if ptr.null?
+      return if ptr.null?
       # Access the string pool through a class method
       Node.string_pool.get(ptr, LibC.strlen(ptr))
     end

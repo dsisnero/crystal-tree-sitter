@@ -74,11 +74,11 @@ end
 def generate_lib_declaration(parser : Parser)
   cpp = " -lstdc++" if parser.cpp?
   puts <<-EOT
-  @[Link(lib: "tree-sitter-#{parser.name}", ldflags: "-L#{parser.dir}#{cpp}")]
-  lib LibTreeSitter#{parser.title}
-    fun tree_sitter_#{parser.name} : LibTreeSitter::TSLanguage
-  end
-  EOT
+    @[Link(lib: "tree-sitter-#{parser.name}", ldflags: "-L#{parser.dir}#{cpp}")]
+    lib LibTreeSitter#{parser.title}
+      fun tree_sitter_#{parser.name} : LibTreeSitter::TSLanguage
+    end
+    EOT
 end
 
 def generate_module(parser : Parser)
@@ -86,30 +86,30 @@ def generate_module(parser : Parser)
   prerelease = parser.version.prerelease unless parser.version.prerelease.to_s.empty?
 
   puts <<-EOT
-  class #{parser.title}Language < Language
-    def initialize
-      @lang = LibTreeSitter#{parser.title}.tree_sitter_#{parser.name}
-      Language.loaded_languages[@lang] = self
-    end
-
-    def self.new
-      ptr = LibTreeSitter#{parser.title}.tree_sitter_#{parser.name}
-      Language.loaded_languages[ptr] ||= begin
-        instance = #{parser.title}Language.allocate
-        instance.initialize
-        instance
+    class #{parser.title}Language < Language
+      def initialize
+        @lang = LibTreeSitter#{parser.title}.tree_sitter_#{parser.name}
+        Language.loaded_languages[@lang] = self
       end
-    end
 
-    def name
-      #{parser.title.inspect}
-    end
+      def self.new
+        ptr = LibTreeSitter#{parser.title}.tree_sitter_#{parser.name}
+        Language.loaded_languages[ptr] ||= begin
+          instance = #{parser.title}Language.allocate
+          instance.initialize
+          instance
+        end
+      end
 
-    def version : SemanticVersion
-      SemanticVersion.new(#{parser.version.major}, #{parser.version.minor}, #{parser.version.patch},
-                          #{prerelease.inspect}, #{parser.version.build.inspect})
-    end
-  EOT
+      def name
+        #{parser.title.inspect}
+      end
+
+      def version : SemanticVersion
+        SemanticVersion.new(#{parser.version.major}, #{parser.version.minor}, #{parser.version.patch},
+                            #{prerelease.inspect}, #{parser.version.build.inspect})
+      end
+    EOT
 
   file_types = parser.file_types
 
@@ -119,7 +119,7 @@ def generate_module(parser : Parser)
       def self.match?(filename : String) : Bool
         #{match_code}
       end
-    EOT
+      EOT
   end
 
   if parser.highlight_query
@@ -127,12 +127,12 @@ def generate_module(parser : Parser)
       def highlight_query : Query?
         Query.new(self, #{parser.highlight_query.inspect})
       end
-    EOT
+      EOT
   end
 
   puts <<-EOT
-  end
-  EOT
+    end
+    EOT
 end
 
 def generate_language_names_constant(parsers : Array(Parser))

@@ -93,7 +93,9 @@ module TreeSitter
     # Get the names of all captures used in the query.
     def capture_names : Array(String)
       Array(String).new(capture_count) do |i|
-        capture_name_for_id(i.to_u32).not_nil!
+        name = capture_name_for_id(i.to_u32)
+        raise "failed to load capture name for id #{i}" if name.nil?
+        name
       end
     end
 
@@ -128,7 +130,7 @@ module TreeSitter
     end
 
     # Check if the given pattern in the query has a single root node.
-    def is_pattern_rooted?(pattern_index : UInt32) : Bool
+    def pattern_rooted?(pattern_index : UInt32) : Bool
       LibTreeSitter.ts_query_is_pattern_rooted(to_unsafe, pattern_index)
     end
 
@@ -138,13 +140,13 @@ module TreeSitter
     # repeating sequence of nodes, as specified by the grammar. Non-local
     # patterns disable certain optimizations that would otherwise be possible
     # when executing a query on a specific range of a syntax tree.
-    def is_pattern_non_local?(pattern_index : UInt32) : Bool
+    def pattern_non_local?(pattern_index : UInt32) : Bool
       LibTreeSitter.ts_query_is_pattern_non_local(to_unsafe, pattern_index)
     end
 
     # Check if a given pattern is guaranteed to match once a given step is reached.
     # The step is specified by its byte offset in the query's source code.
-    def is_pattern_guaranteed_at_step?(byte_offset : UInt32) : Bool
+    def pattern_guaranteed_at_step?(byte_offset : UInt32) : Bool
       LibTreeSitter.ts_query_is_pattern_guaranteed_at_step(to_unsafe, byte_offset)
     end
 
@@ -179,39 +181,22 @@ module TreeSitter
       steps = LibTreeSitter.ts_query_predicates_for_pattern(to_unsafe, pattern_index, out step_count)
       return predicates if step_count == 0 || steps.null?
 
-      current_args = [] of Predicate::Arg
       predicate_name = ""
+      current_args = [] of Predicate::Arg
 
       step_count.times do |i|
         step = steps[i]
         next if step.type.done?
 
-        case step.type
-        when .capture?
-          cap_name = capture_name_for_id(step.value_id)
-          next unless cap_name
-
-          # First capture in a predicate is the predicate name
+        if arg = predicate_arg_for_step(step)
           if predicate_name.empty?
-            predicate_name = cap_name
+            predicate_name = arg.value
           else
-            current_args << Predicate::Arg.capture(cap_name)
-          end
-        when .string?
-          str_val = string_value_for_id(step.value_id)
-          next unless str_val
-
-          # First string in a predicate is the predicate name
-          if predicate_name.empty?
-            predicate_name = str_val
-          else
-            current_args << Predicate::Arg.string(str_val)
+            current_args << arg
           end
         end
 
-        # Check if the next step or our current position signals done
-        next_step = (i + 1 < step_count) ? steps[i + 1] : nil
-        if next_step.nil? || next_step.type.done?
+        if boundary?(steps, i, step_count)
           unless predicate_name.empty?
             predicates << Predicate.new(predicate_name, current_args)
           end
@@ -221,6 +206,23 @@ module TreeSitter
       end
 
       predicates
+    end
+
+    # Return a `Predicate::Arg` for a given predicate step, or `nil` if the step
+    # holds no value (e.g. `done`/`call` steps or an unresolved capture).
+    private def predicate_arg_for_step(step) : Predicate::Arg?
+      case step.type
+      when .capture?
+        capture_name_for_id(step.value_id).try { |name| Predicate::Arg.capture(name) }
+      when .string?
+        string_value_for_id(step.value_id).try { |value| Predicate::Arg.string(value) }
+      end
+    end
+
+    # Whether the given step is the last step of a predicate.
+    private def boundary?(steps, i, step_count) : Bool
+      return true if i + 1 == step_count
+      steps[i + 1].type.done?
     end
 
     # :nodoc:

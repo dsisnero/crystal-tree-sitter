@@ -16,7 +16,7 @@ New in v0.27.0 that needs binding or is partially missing.
 
 | Function | Crystal Status | Action |
 |---|---|---|
-| `ts_language_is_parseable` | ✅ bound + `Language#is_parseable?` | Done: bind + method (spec/language_spec.cr) |
+| `ts_language_is_parseable` | ✅ bound + `Language#parseable?` | Done: bind + method (spec/language_spec.cr) |
 | `ts_language_name` | ✅ already bound | — |
 | `ts_node_eq` | ✅ already bound | — |
 | `ts_point_edit` | ✅ bound + `Point#edit` | Done: bind + `Point#edit(edit, byte) : {Point, UInt32}` (spec/point_edit_spec.cr) |
@@ -190,7 +190,7 @@ spawn { use_language(language) }
 | `is_extra` | `extra?` | `lib.rs:1641` | ✅ pre-existing |
 | `has_changes` | `has_changes?` | `lib.rs:1648` | ✅ pre-existing |
 | `has_error` | `has_error?` | `lib.rs:1656` | ✅ pre-existing |
-| `is_error` | `is_error?` | `lib.rs:1666` | ✅ |
+| `is_error` | `error?` | `lib.rs:1666` | ✅ |
 | `parse_state` | `parse_state` | `lib.rs:1673` | ✅ |
 | `next_parse_state` | `next_parse_state` | `lib.rs:1680` | ✅ |
 | `start_byte` / `end_byte` | `start_byte` / `end_byte` | `lib.rs:1697` | ✅ pre-existing |
@@ -290,7 +290,7 @@ spawn { use_language(language) }
 | `lookahead_iterator` | `lookahead_iterator` | `lib.rs:677` | ✅ |
 | `copy` | `copy` | `lib.rs:500` | ✅ (`ts_language_copy` bound + `Language#copy`, spec/language_spec.cr) |
 | `delete` | — | `lib.rs:507` | ⬜ deferred (native delete is a no-op; cached instance is process-lifetime) |
-| `is_parseable?` | `is_parseable?` | — | ✅ (`ts_language_is_parseable` bound + `Language#is_parseable?`, spec/language_spec.cr) |
+| `is_parseable` | `parseable?` | — | ✅ (`ts_language_is_parseable` bound + `Language#parseable?`, spec/language_spec.cr) |
 | `name` (dynamic) | `name` (static) | — | ✅ (Crystal caches at construction) |
 
 ---
@@ -343,9 +343,9 @@ spawn { use_language(language) }
 | `disable_capture` | `disable_capture` | `lib.rs:2892` | ✅ |
 | `disable_pattern` | `disable_pattern` | `lib.rs:2907` | ✅ |
 | `deep_clone` (`ts_query_copy`) | `copy` | `lib.rs:2919` | ✅ |
-| `is_pattern_rooted` | `is_pattern_rooted?` | `lib.rs:2914` | ✅ |
-| `is_pattern_non_local` | `is_pattern_non_local?` | `lib.rs:2921` | ✅ |
-| `is_pattern_guaranteed_at_step` | `is_pattern_guaranteed_at_step?` | `lib.rs:2931` | ✅ |
+| `is_pattern_rooted` | `pattern_rooted?` | `lib.rs:2914` | ✅ |
+| `is_pattern_non_local` | `pattern_non_local?` | `lib.rs:2921` | ✅ |
+| `is_pattern_guaranteed_at_step` | `pattern_guaranteed_at_step?` | `lib.rs:2931` | ✅ |
 
 ---
 

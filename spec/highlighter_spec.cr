@@ -9,13 +9,13 @@ describe TreeSitter::Highlighter do
     highlighter.set_line_range(1, 5) # Skip first empty line
     highlighter.exec(tree.root_node)
 
-    highlighter.highlight_next_line.map(&.rule).should eq(%w())
-    highlighter.highlight_next_line.map(&.rule).should eq(%w(number))
-    highlighter.highlight_next_line.map(&.rule).should eq(%w())
-    highlighter.highlight_next_line.map(&.rule).should eq(%w(constant.builtin string))
+    highlighter.highlight_next_line.map(&.rule).should eq(%w[])
+    highlighter.highlight_next_line.map(&.rule).should eq(%w[number])
+    highlighter.highlight_next_line.map(&.rule).should eq(%w[])
+    highlighter.highlight_next_line.map(&.rule).should eq(%w[constant.builtin string])
 
     highlighter.exec(tree.root_node)
     highlighter.set_line_range(4, 5)
-    highlighter.highlight_next_line.map(&.rule).should eq(%w(constant.builtin string))
+    highlighter.highlight_next_line.map(&.rule).should eq(%w[constant.builtin string])
   end
 end

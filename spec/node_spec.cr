@@ -86,7 +86,7 @@ describe TreeSitter::Node do
       iter = TreeSitter::LookaheadIterator.new(lang, state)
       names = iter.iter_names.to_a
       names.size.should be > 0
-      names.all? { |n| n.is_a?(String) }.should be_true
+      names.all?(String).should be_true
     end
   end
 
@@ -115,10 +115,10 @@ describe TreeSitter::Node do
     end
   end
 
-  describe "#is_error?" do
+  describe "#error?" do
     it "returns false for valid nodes" do
       root_node = parse_json("[1, null]").root_node
-      root_node.is_error?.should be_false
+      root_node.error?.should be_false
     end
   end
 
@@ -295,9 +295,9 @@ describe TreeSitter::Node do
     it "#parse_with_progress reports byte offsets" do
       parser = TreeSitter::Parser.new("json")
       offsets = [] of UInt32
-      tree = parser.parse_with_progress(nil, "[1, null]") { |offset|
+      tree = parser.parse_with_progress(nil, "[1, null]") do |offset|
         offsets << offset
-      }
+      end
       tree.should_not be_nil
       offsets.size.should be > 0
       offsets[0].should be_a(UInt32)

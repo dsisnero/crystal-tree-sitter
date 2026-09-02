@@ -11,9 +11,9 @@ module TreeSitter
     end
 
     def nodes_for_capture_index(capture_ix : UInt32) : Array(Node)
-      @captures.compact_map { |capture|
+      @captures.compact_map do |capture|
         capture.node if capture.index == capture_ix
-      }
+      end
     end
 
     # Remove this match from the query cursor.
@@ -108,9 +108,9 @@ module TreeSitter
       return unless ok
 
       capture = match.captures[capture_index]
-      return nil if LibTreeSitter.ts_node_is_null(capture.node)
+      return if LibTreeSitter.ts_node_is_null(capture.node)
 
-      rule = @query.capture_name_for_id(capture.index).not_nil!
+      rule = capture_name_for(capture)
       Capture.new(rule, Node.new_unsafe(capture.node), capture.index.to_u32)
     end
 
@@ -128,8 +128,7 @@ module TreeSitter
         # Skip null nodes in captures
         next if LibTreeSitter.ts_node_is_null(capture.node)
 
-        rule = @query.capture_name_for_id(capture.index).not_nil!
-        captures << Capture.new(rule, Node.new_unsafe(capture.node), capture.index.to_u32)
+        captures << Capture.new(capture_name_for(capture), Node.new_unsafe(capture.node), capture.index.to_u32)
       end
 
       Match.new(match.pattern_index, captures, match.id.to_u32)
@@ -155,8 +154,15 @@ module TreeSitter
     # Set the maximum number of in-progress matches for this cursor.
     #
     # The limit must be > 0 and <= 65536.
+    # ameba:disable Naming/AccessorMethodName -- fluent alias, use `match_limit=`
     def set_match_limit(limit : UInt32) : Nil
       LibTreeSitter.ts_query_cursor_set_match_limit(self, limit)
+    end
+
+    # Set the maximum number of in-progress matches for this cursor
+    # (Crystal-style alias of `set_match_limit`).
+    def match_limit=(limit : UInt32) : Nil
+      set_match_limit(limit)
     end
 
     # Check if, on its last execution, this cursor exceeded its maximum number
@@ -177,20 +183,39 @@ module TreeSitter
     # only limits a search depth for a pattern's root node but other nodes
     # that are parts of the pattern may be searched at any depth depending on
     # what is defined by the pattern structure.
+    # ameba:disable Naming/AccessorMethodName -- fluent alias, use `max_start_depth=`
     def set_max_start_depth(max_start_depth : UInt32) : Nil
       LibTreeSitter.ts_query_cursor_set_max_start_depth(self, max_start_depth)
     end
 
+    # Set the maximum start depth for a query cursor (Crystal-style alias of
+    # `set_max_start_depth`).
+    def max_start_depth=(max_start_depth : UInt32) : Nil
+      set_max_start_depth(max_start_depth)
+    end
+
     # Set the maximum duration in microseconds that query execution should be
     # allowed to run before being halted.
+    # ameba:disable Naming/AccessorMethodName -- fluent alias, use `timeout_micros=`
     def set_timeout_micros(timeout_micros : UInt64) : Nil
       LibTreeSitter.ts_query_cursor_set_timeout_micros(self, timeout_micros)
+    end
+
+    # Set the maximum duration in microseconds that query execution should be
+    # allowed to run before being halted (Crystal-style alias of `set_timeout_micros`).
+    def timeout_micros=(timeout_micros : UInt64) : Nil
+      set_timeout_micros(timeout_micros)
     end
 
     # Get the maximum duration in microseconds that query execution is allowed
     # to run before being halted.
     def timeout_micros : UInt64
       LibTreeSitter.ts_query_cursor_timeout_micros(self)
+    end
+
+    # Resolve the capture name for a match capture, raising if it cannot be found.
+    private def capture_name_for(capture) : String
+      @query.capture_name_for_id(capture.index) || raise("failed to resolve capture name for id #{capture.index}")
     end
 
     def to_unsafe

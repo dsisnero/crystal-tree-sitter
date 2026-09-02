@@ -1,11 +1,11 @@
 require "benchmark"
 require "../src/tree_sitter"
 
-private ITEMS = (1..200).map { |i| %({"id":#{i},"name":"item-#{i}","tags":["tag-#{i}","common"],"nested":{"key":"value","flag":#{i % 2 == 0},"count":#{i}}}) }
+private ITEMS      = (1..200).map { |i| %({"id":#{i},"name":"item-#{i}","tags":["tag-#{i}","common"],"nested":{"key":"value","flag":#{i % 2 == 0},"count":#{i}}}) }
 LARGE_JSON = "[#{ITEMS.join(",")}]"
 
 private MEDIUM_ITEMS = (1..20).map { |i| %({"id":#{i},"name":"item-#{i}"}) }
-MEDIUM_JSON = "[#{MEDIUM_ITEMS.join(",")}]"
+MEDIUM_JSON  = "[#{MEDIUM_ITEMS.join(",")}]"
 
 QUERY_SOURCE = "(pair) @pair\n(string) @string\n(number) @number"
 
@@ -16,17 +16,14 @@ module Harness
 
   def self.parser : TreeSitter::Parser
     @@parser ||= TreeSitter::Parser.new("json")
-    @@parser.not_nil!
   end
 
   def self.tree : TreeSitter::Tree
-    @@tree ||= parser.parse(nil, LARGE_JSON).not_nil!
-    @@tree.not_nil!
+    @@tree ||= parser.parse(nil, LARGE_JSON) || raise("failed to parse LARGE_JSON")
   end
 
   def self.query : TreeSitter::Query
     @@query ||= TreeSitter::Query.new(tree.language, QUERY_SOURCE)
-    @@query.not_nil!
   end
 end
 
@@ -41,7 +38,7 @@ Benchmark.bm do |x|
     cursor = TreeSitter::TreeCursor.new(t.root_node)
     cursor.goto_first_child
     cursor.goto_first_child
-    n = cursor.current_node
+    cursor.current_node
   end
   x.report("children iter") do
     Harness.tree.root_node.children.each { |_| }
@@ -73,11 +70,11 @@ Benchmark.bm do |x|
 end
 
 puts
+
 # Get the array node (second level) which has 200 children for real iteration benchmarks
 def array_node
   root = Harness.tree.root_node
-  array = root.named_child(0).not_nil!
-  array
+  root.named_child(0) || raise("expected array node")
 end
 
 puts "=== IPS (iterations/sec, higher = better) ==="
@@ -122,16 +119,16 @@ Benchmark.ips do |x|
 
   x.report("field_by_name 200") do
     root = Harness.tree.root_node
-    arr = root.named_child(0).not_nil!
-    first_obj = arr.named_child(0).not_nil!
+    arr = root.named_child(0) || raise("expected array node")
+    first_obj = arr.named_child(0) || raise("expected first object")
     cursor = TreeSitter::TreeCursor.new(first_obj)
     first_obj.children_by_field_name("key", cursor).each { |_| }
   end
 
   x.report("field_by_id 200") do
     root = Harness.tree.root_node
-    arr = root.named_child(0).not_nil!
-    first_obj = arr.named_child(0).not_nil!
+    arr = root.named_child(0) || raise("expected array node")
+    first_obj = arr.named_child(0) || raise("expected first object")
     cursor = TreeSitter::TreeCursor.new(first_obj)
     field_id = first_obj.language.field_id_for_name("key")
     first_obj.children_by_field_id(field_id, cursor).each { |_| }
@@ -154,7 +151,7 @@ Benchmark.ips do |x|
     cursor = TreeSitter::TreeCursor.new(t.root_node)
     cursor.goto_first_child
     cursor.goto_first_child
-    n = cursor.current_node
+    cursor.current_node
   end
 
   x.report("node.type access") do

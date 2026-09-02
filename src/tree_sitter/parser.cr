@@ -73,7 +73,7 @@ module TreeSitter
       input = LibTreeSitter::TSInput.new
       input.payload = Box.box(data)
       input.encoding = LibTreeSitter::TSInputEncoding::UTF8
-      input.read = ->(payload : Pointer(Void), index : UInt32, pos : LibTreeSitter::TSPoint, read : Pointer(UInt32)) do
+      input.read = ->(payload : Pointer(Void), index : UInt32, _pos : LibTreeSitter::TSPoint, read : Pointer(UInt32)) do
         tuple = Box({String, Proc(UInt32, Nil)}).unbox(payload)
         src = tuple[0]
         cb = tuple[1]
@@ -156,8 +156,15 @@ module TreeSitter
     # If `ranges` is empty, then the entire document will be parsed.
     # Otherwise, the given ranges must be ordered from earliest to latest
     # in the document, and they must not overlap. Returns true on success.
+    # ameba:disable Naming/AccessorMethodName -- fluent alias, use `included_ranges=`
     def set_included_ranges(ranges : Array(Range)) : Bool
       LibTreeSitter.ts_parser_set_included_ranges(to_unsafe, ranges.to_unsafe, ranges.size.to_u32)
+    end
+
+    # Set the ranges of text that the parser should include when parsing
+    # (Crystal-style alias of `set_included_ranges`).
+    def included_ranges=(ranges : Array(Range)) : Bool
+      set_included_ranges(ranges)
     end
 
     # Set the maximum duration in microseconds that parsing should be allowed to
@@ -165,8 +172,15 @@ module TreeSitter
     #
     # If parsing takes longer than this, it will halt early, returning nil.
     # See `#parse` for more information.
+    # ameba:disable Naming/AccessorMethodName -- fluent alias, use `timeout_micros=`
     def set_timeout_micros(timeout_micros : UInt64) : Nil
       LibTreeSitter.ts_parser_set_timeout_micros(to_unsafe, timeout_micros)
+    end
+
+    # Set the maximum duration in microseconds that parsing should be allowed to
+    # take before halting (Crystal-style alias of `set_timeout_micros`).
+    def timeout_micros=(timeout_micros : UInt64) : Nil
+      set_timeout_micros(timeout_micros)
     end
 
     # Get the duration in microseconds that parsing is allowed to take.
@@ -194,7 +208,7 @@ module TreeSitter
     def stop_logging : Nil
       logger = LibTreeSitter::TSLogger.new
       logger.payload = Pointer(Void).null
-      logger.log = ->(p : Void*, type : LibTreeSitter::TSLogType, msg : LibC::Char*) { }
+      logger.log = ->(_p : Void*, _type : LibTreeSitter::TSLogType, _msg : LibC::Char*) { }
       LibTreeSitter.ts_parser_set_logger(to_unsafe, logger)
     end
 

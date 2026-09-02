@@ -12,7 +12,7 @@ module TreeSitter
     # Check whether this language can be assigned to a parser. Languages obtained
     # from a syntax tree may be used to inspect that tree, but are not necessarily
     # usable for parsing (e.g. when compiled to WebAssembly).
-    def is_parseable? : Bool
+    def parseable? : Bool
       LibTreeSitter.ts_language_is_parseable(to_unsafe)
     end
 
@@ -179,7 +179,7 @@ module TreeSitter
     # See also `Metadata`.
     def metadata : Metadata?
       ptr = LibTreeSitter.ts_language_metadata(to_unsafe)
-      return nil if ptr.null?
+      return if ptr.null?
       Metadata.new(ptr.value.major_version, ptr.value.minor_version, ptr.value.patch_version)
     end
 
