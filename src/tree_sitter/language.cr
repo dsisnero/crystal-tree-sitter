@@ -9,6 +9,20 @@ module TreeSitter
     getter name : String
     protected class_property loaded_languages = Hash(LibTreeSitter::TSLanguage*, Language).new
 
+    # Check whether this language can be assigned to a parser. Languages obtained
+    # from a syntax tree may be used to inspect that tree, but are not necessarily
+    # usable for parsing (e.g. when compiled to WebAssembly).
+    def is_parseable? : Bool
+      LibTreeSitter.ts_language_is_parseable(to_unsafe)
+    end
+
+    # Get a new reference to this language. The language is immutable and
+    # reference-counted by the C library, so a copy shares the same underlying
+    # language data while being safe to pass between fibers/threads.
+    def copy : Language
+      Language.new(LibTreeSitter.ts_language_copy(to_unsafe))
+    end
+
     @@loaded_languages = Hash(LibTreeSitter::TSLanguage*, Language).new
 
     # :nodoc:

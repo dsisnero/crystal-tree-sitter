@@ -13,6 +13,19 @@ describe TreeSitter::Language do
     lang1.object_id.should eq(lang2.object_id)
   end
 
+  it "is parseable when loaded from a shared library" do
+    lang = TreeSitter::Repository.load_language("json")
+    lang.is_parseable?.should be_true
+  end
+
+  it "copies to a usable language with the same name and ABI" do
+    lang = TreeSitter::Repository.load_language("json")
+    copy = lang.copy
+    copy.name.should eq(lang.name)
+    copy.abi_version.should eq(lang.abi_version)
+    copy.is_parseable?.should be_true
+  end
+
   pending "can detect language from file path" do
     # TreeSitter::Language.detect("foo.json").should be_a(TreeSitter::JSONLanguage)
     # TreeSitter::Language.detect("foo.c").should be_a(TreeSitter::CLanguage)

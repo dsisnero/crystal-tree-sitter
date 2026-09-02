@@ -853,6 +853,9 @@ lib LibTreeSitter
 
   fun ts_language_name(self : TSLanguage*) : LibC::Char*
 
+  # Check whether this language can be assigned to a parser.
+  fun ts_language_is_parseable(self : TSLanguage*) : Bool
+
   # Get a node type string for the given numerical id.
   fun ts_language_symbol_name(self : TSLanguage*, symbol : TSSymbol) : LibC::Char*
 
