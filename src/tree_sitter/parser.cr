@@ -105,6 +105,30 @@ module TreeSitter
       Tree.new(ptr) if ptr
     end
 
+    # Parse source whose bytes are decoded by `decoder`. The decoder receives
+    # the unread bytes, writes one Unicode code point, and returns bytes consumed.
+    def parse_custom_encoding(
+      old_tree : Tree?, source : Bytes, decoder : LibTreeSitter::TSDecodeFunction,
+    ) : Tree?
+      input = LibTreeSitter::TSInput.new
+      input.payload = Box.box(source)
+      input.encoding = LibTreeSitter::TSInputEncoding::Custom
+      input.decode = decoder
+      input.read = ->(payload : Pointer(Void), index : UInt32, _pos : LibTreeSitter::TSPoint, read : Pointer(UInt32)) do
+        bytes = Box(Bytes).unbox(payload)
+        if index < bytes.size
+          slice = bytes[index..]
+          read.value = slice.size.to_u32
+          slice.to_unsafe
+        else
+          read.value = 0
+          Pointer(LibC::Char).null
+        end
+      end
+      ptr = LibTreeSitter.ts_parser_parse(to_unsafe, old_tree, input)
+      Tree.new(ptr) if ptr
+    end
+
     # Parse a string and provide a progress callback that receives the current byte index.
     def parse_with_progress(old_tree : Tree?, string : String, &progress : UInt32 ->) : Tree?
       data = {string, progress}

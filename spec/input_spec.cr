@@ -32,3 +32,16 @@ describe "TSDecodeFunction binding" do
     input.decode.should eq(decoder)
   end
 end
+
+describe TreeSitter::Parser do
+  it "parses source using a custom decoder" do
+    parser = TreeSitter::Parser.new("json")
+    decoder = ->(bytes : UInt8*, length : UInt32, code_point : Int32*) : UInt32 {
+      code_point.value = bytes[0].to_i32
+      1_u32
+    }
+
+    tree = parser.parse_custom_encoding(nil, "[1]".to_slice, decoder)
+    tree.not_nil!.root_node.type.should eq("document")
+  end
+end

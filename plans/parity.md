@@ -46,7 +46,7 @@ existing `parse_with_progress` to a full `parse_with_options`.
 - `Node#utf16_text` (reinterpret node byte range as `UInt16` slice).
 - Why here: no dependency on Phase 3, but small and round-trips with Phase 3's encoding work.
 
-### PHASE 5 — Custom encoding parse
+### PHASE 5 — Custom encoding parse ✅
 - `Parser#parse_custom_encoding` using the `TSInput.decode`/`TSDecodeFunction` binding from Phase 1.
 - Why here: builds directly on the decode plumbing already landed.
 
@@ -273,9 +273,9 @@ the plan.**
 | `stop_printing_dot_graphs` | `stop_printing_dot_graphs` | `lib.rs:849` | ✅ |
 | `parse` (string) | `parse`/`parse?` | `lib.rs:864` | ✅ pre-existing |
 | `parse_with` (callback) | `parse`/`parse?` (&block) | `lib.rs:891` | ✅ pre-existing |
-| `parse_utf16_le` / `parse_utf16_be` | — | `lib.rs:984` | 🔶 Phase 4 |
-| `parse_custom_encoding` | — | `lib.rs:1246` | 🔶 Phase 5 |
-| `parse_with_options` (progress) | `parse_with_options` | `lib.rs:891` | 🔶 Phase 3 |
+| `parse_utf16_le` / `parse_utf16_be` | `parse_utf16_le` / `parse_utf16_be` | `lib.rs:984` | ✅ |
+| `parse_custom_encoding` | `parse_custom_encoding` | `lib.rs:1246` | ✅ |
+| `parse_with_options` (progress) | `parse_with_options` | `lib.rs:891` | ✅ |
 | `reset` | `reset` | `lib.rs:1354` | ✅ pre-existing |
 | `set_included_ranges` | `set_included_ranges` | `lib.rs:1376` | ✅ |
 | `included_ranges` | `included_ranges` | `lib.rs:1403` | ✅ |
@@ -391,9 +391,9 @@ implementation → gates: `make test` + `make lint` + `crystal tool format --che
 
 - [x] **PHASE 1** — v0.27.0 single-symbol parity (parseable?, copy, point/range edit, Language#finalize, TSInput decode field + TSDecodeFunction + full TSInputEncoding)
 - [x] **PHASE 2** — thread-safety docs + copy/finalize contract
-- [ ] **PHASE 3** — parser & cursor options (progress callbacks)
-- [ ] **PHASE 4** — UTF-16 text support (`parse_utf16_le/be`, `Node#utf16_text`)
-- [ ] **PHASE 5** — custom encoding parse (`ts_parser_parse_custom_encoding` + decode)
+- [x] **PHASE 3** — parser & cursor options (progress callbacks)
+- [x] **PHASE 4** — UTF-16 text support (`parse_utf16_le/be`, `Node#utf16_text`)
+- [x] **PHASE 5** — custom encoding parse (`Parser#parse_custom_encoding` + decode)
 - [ ] **PHASE 6** — query predicate/public accessor API (`property_predicates`, `property_settings`, `general_predicates`, `new_raw`)
 - [ ] **PHASE 7** — parser UX + concurrency examples (`Parser#clone`, `logger` getter, `Channel(Parser)` pool spec)
 - [ ] **PHASE 8** — node & range ergonomics (`Node#range`, `Range#byte_range`, `Node#byte_range` rename)
