@@ -223,6 +223,18 @@ describe TreeSitter::Node do
     end
   end
 
+  describe "#range" do
+    it "combines the node's byte and point boundaries" do
+      node = parse_json("[1, null]").root_node.named_child(0).not_nil!
+      range = node.range
+
+      range.start_byte.should eq(node.start_byte)
+      range.end_byte.should eq(node.end_byte)
+      range.start_point.should eq(node.start_point)
+      range.end_point.should eq(node.end_point)
+    end
+  end
+
   describe "#utf16_text" do
     it "returns code units covered by the node" do
       source = Slice(UInt16).new(3) { |i| [91u16, 49u16, 93u16][i] }

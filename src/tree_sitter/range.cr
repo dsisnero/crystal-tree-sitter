@@ -66,6 +66,11 @@ module TreeSitter
     delegate end_byte, to: @range
     delegate :end_byte=, to: @range
 
+    # Convert this Tree-sitter byte span into Crystal's end-exclusive range.
+    def byte_range : ::Range(UInt32, UInt32)
+      start_byte...end_byte
+    end
+
     # Edit the range to keep it in-sync with source code that has been edited.
     def edit(edit : LibTreeSitter::TSInputEdit)
       LibTreeSitter.ts_range_edit(pointerof(@range), pointerof(edit))

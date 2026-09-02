@@ -361,6 +361,11 @@ module TreeSitter
       {start_byte, end_byte}
     end
 
+    # Get the complete source range represented by this node.
+    def range : Range
+      Range.new(start_byte, end_byte, start_point, end_point)
+    end
+
     # Get a numeric id for this node that is unique. Within a given syntax tree,
     # no two nodes have the same id.
     def id : LibC::ULong

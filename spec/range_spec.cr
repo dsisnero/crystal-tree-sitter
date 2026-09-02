@@ -1,6 +1,12 @@
 require "./spec_helper"
 
 describe TreeSitter::Range do
+  it "converts its byte boundaries to a Crystal range" do
+    range = TreeSitter::Range.new(1_u32, 5_u32, TreeSitter::Point.new(0, 1), TreeSitter::Point.new(0, 5))
+
+    range.byte_range.should eq(1_u32...5_u32)
+  end
+
   it "can be constructed with points" do
     range = TreeSitter::Range.new(1_u32, 2_u32, TreeSitter::Point.new(1, 2), TreeSitter::Point.new(3, 4))
     range.start_byte.should eq(1)

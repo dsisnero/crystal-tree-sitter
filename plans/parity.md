@@ -184,7 +184,7 @@ the plan.**
 | `grammar_name` (grammar_type) | `grammar_name` | `lib.rs:1612` | ✅ |
 | `language` | `language` | `lib.rs:1621` | ✅ |
 | `byte_range` | `byte_range` | `lib.rs:1710` | ✅ |
-| `range` (combined) | — | `lib.rs:1717` | 🔶 Phase 8 |
+| `range` (combined) | `range` | `lib.rs:1717` | ✅ |
 | `to_sexp` (String) | `to_s` (String, auto-generated from IO) | `lib.rs:2036` | ✅ |
 | `utf8_text` | `text` | `lib.rs:2046` | ✅ pre-existing |
 | `utf16_text` | — | `lib.rs:2130` | 🔶 Phase 4 |
@@ -375,8 +375,8 @@ conflating the two types.
 
 | Addition | Why / sealed with | Status |
 |---|---|---|
-| `TreeSitter::Range#byte_range : Range(UInt32, UInt32)` → `start_byte..end_byte` | Slice `source[range.byte_range]`; additive, leaves `TSRange`/C-API coupling untouched | 🔶 Phase 8 |
-| Change `Node#byte_range` to return `Range(UInt32, UInt32)` (currently `Tuple(UInt32, UInt32)` at `node.cr:357`) | Matches Crystal's native slice/iterate idiom; **breaking** change to consider before v1.0 | 🔶 Phase 8 (flagged for review) |
+| `TreeSitter::Range#byte_range : Range(UInt32, UInt32)` → `start_byte...end_byte` | Slice `source[range.byte_range]`; additive, leaves `TSRange`/C-API coupling untouched | ✅ |
+| Change `Node#byte_range` to return `Range(UInt32, UInt32)` (currently `Tuple(UInt32, UInt32)` at `node.cr:357`) | Matches Crystal's native slice/iterate idiom; **breaking** change to consider before v1.0 | 🔶 Phase 8 (awaiting user review) |
 | `SourceBuffer`/reference-slice helper over a `Range` | Iterate/chunk a byte span | 🔶 Phase 8 |
 
 Note: keep `TreeSitter::Range` separate from Crystal's `Range`; only *convert* via the
