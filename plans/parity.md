@@ -1,10 +1,165 @@
 # Tree-Sitter Crystal ↔ Rust API Parity
 
-Source of truth: `vendor/tree-sitter/lib/binding_rust/lib.rs` (submodule, commit `519d511`)
+Source of truth: `vendor/tree-sitter/lib/binding_rust/lib.rs` (submodule, v0.27.0)
 
 Upstream repo: https://github.com/crystal-lang-tools/crystal-tree-sitter
 
-Specs: 73 examples, 0 failures, 11 errors (pre-existing Go parser dependency), 1 pending
+Verification: focused query specs pass against vendored tree-sitter `0.27.0`; full-suite counts remain environment-dependent because parser discovery still relies on external grammar setup.
+
+---
+
+## Phase 1: v0.27.0 C API Parity
+
+New in v0.27.0 that needs binding or is partially missing.
+
+### 1A. New C API Functions (bind missing symbols)
+
+| Function | Crystal Status | Action |
+|---|---|---|
+| `ts_language_is_parseable` | ✅ bound + `Language#is_parseable?` | Done: bind + method (spec/language_spec.cr) |
+| `ts_language_name` | ✅ already bound | — |
+| `ts_node_eq` | ✅ already bound | — |
+| `ts_point_edit` | ✅ bound + `Point#edit` | Done: bind + `Point#edit(edit, byte) : {Point, UInt32}` (spec/point_edit_spec.cr) |
+| `ts_range_edit` | ✅ bound + `Range#edit` | Done: bind + in-place `Range#edit(edit)` (spec/range_edit_spec.cr) |
+| `ts_node_eq` | ✅ already bound | Used by `Node#==` |
+| `ts_parser_parse_with_options` | ⚠️ partial (`parse_with_progress`) | Add direct bind for full `TSParseOptions` support |
+| `ts_query_cursor_exec_with_options` | ❌ not bound | Bind for `QueryCursorOptions` |
+| `ts_language_copy` | ✅ bound + `Language#copy` | Done: bind + refcounted copy (spec/language_spec.cr) |
+| `ts_language_delete` | ✅ bound | Done: bound (native delete is a no-op; cached instance is process-lifetime) |
+
+### 1B. TSInput `decode` Field
+
+The v0.27.0 `TSInput` struct has a `decode` field (`TSDecodeFunction`) for custom encodings. The Crystal `TSInput` struct is missing this field.
+
+| Item | Status | Action |
+|---|---|---|
+| `TSDecodeFunction` typedef | ❌ not in Crystal | Define `alias TSDecodeFunction` in `lib_tree_sitter.cr` |
+| `TSInput.decode` field | ❌ missing | Add `decode : TSDecodeFunction` to `TSInput` struct |
+| `TSInputEncodingCustom` enum | ❌ missing (only UTF8/UTF16) | Add `Custom` variant to `TSInputEncoding` |
+
+### 1C. ParseOptions / QueryCursorOptions Structs
+
+| Item | Status | Action |
+|---|---|---|
+| `TSParseState` struct | ⚠️ used by `parse_with_progress` | Ensure `TSInput.decode` is wired for full options |
+| `TSParseOptions` struct | ⚠️ partial | Add full struct for `ts_parser_parse_with_options` |
+| `TSQueryCursorState` struct | ❌ not bound | Bind for progress callbacks |
+| `TSQueryCursorOptions` struct | ❌ not bound | Bind for query progress callbacks |
+
+---
+
+## Phase 2: Thread Safety
+
+Source of truth: Rust binding `unsafe impl Send/Sync` + tree-sitter docs.
+
+### Thread Safety Model (from upstream)
+
+```
+Thread-safe (immutable/reference-counted):
+  - Language     — immutable after creation, safe to share
+  - Tree (copy)  — ts_tree_copy is atomic refcount bump
+  - Query        — immutable after creation, safe to share
+  - Node         — value type, references tree
+
+NOT thread-safe (mutable state):
+  - Parser       — must not be shared across threads simultaneously
+  - TreeCursor   — mutable walk state
+  - QueryCursor  — mutable iteration state
+  - LookaheadIterator — mutable iteration state
+```
+
+### 2A. Language: Immutable, Reference-Counted
+
+Rust: `unsafe impl Send for Language {}` + `unsafe impl Sync for Language {}`
+
+Crystal actions:
+- [x] Add `Language#copy` using `ts_language_copy` (returns new reference)
+- [ ] Add `Language#finalize` using `ts_language_delete` (release reference)
+- [x] Use `AtomicCounter` or Crystal's GC for reference counting
+- [ ] Document: "Language instances are immutable and thread-safe"
+
+### 2B. Tree: Copy for Thread-Safe Sharing
+
+Rust: `unsafe impl Send for Tree {}` + `unsafe impl Sync for Tree {}`
+
+Crystal actions:
+- [x] `Tree#copy` already exists (uses `ts_tree_copy`)
+- [ ] Add `Tree#finalize` (already exists)
+- [ ] Document: "Use `Tree#copy` before sharing across fibers/threads"
+- [ ] Document: "Individual Tree instances are NOT thread-safe"
+
+### 2C. Parser: Not Thread-Safe
+
+Rust: `unsafe impl Send for Parser {}` + `unsafe impl Sync for Parser {}`
+BUT upstream docs say: "Individual Parser instances are not thread safe"
+
+Crystal actions:
+- [ ] Document: "Parser instances must not be shared across fibers simultaneously"
+- [ ] Add example: `Channel(Parser)` or spawn-per-thread pattern
+- [ ] Consider adding `Parser#clone` that creates a new independent parser with same language
+
+### 2D. Query: Immutable, Thread-Safe
+
+Rust: `unsafe impl Send for Query {}` + `unsafe impl Sync for Query {}`
+
+Crystal actions:
+- [x] `Query#copy` already exists (uses `ts_query_copy`)
+- [ ] Add `Query#finalize` (already exists)
+- [ ] Document: "Query instances are immutable and thread-safe"
+
+### 2E. QueryCursor / TreeCursor / LookaheadIterator: Not Thread-Safe
+
+Rust: `unsafe impl Send for QueryCursor {}` + `unsafe impl Sync for QueryCursor {}`
+But these carry mutable state; not safe to share.
+
+Crystal actions:
+- [ ] Document: "QueryCursor/TreeCursor/LookaheadIterator must not be shared across fibers"
+- [ ] Note: Crystal fibers run on a single thread (event loop), so this is safe by default in typical usage
+
+### 2F. Node: Value Type, Thread-Safe by Copy
+
+Rust: `unsafe impl Send for Node<'_> {}` + `unsafe impl Sync for Node<'_> {}`
+
+Crystal actions:
+- [x] `Node` is already a `struct` (value type, copied on assignment)
+- [ ] Document: "Node is a value type; safe to pass between fibers"
+
+### 2G. Thread Safety Summary Table
+
+| Type | Send | Sync | Crystal | Action |
+|---|---|---|---|---|
+| `Language` | ✅ | ✅ | class (reference) | Add refcount via `ts_language_copy`/`ts_language_delete` |
+| `Tree` | ✅ | ✅ | class (pointer) | `copy` exists; document usage |
+| `Parser` | ✅ | ✅ | class (pointer) | Document: not safe to share |
+| `Query` | ✅ | ✅ | class (pointer) | `copy` exists; document usage |
+| `Node` | ✅ | ✅ | struct (value) | Already safe |
+| `TreeCursor` | ✅ | ✅ | class (pointer) | Document: not safe to share |
+| `QueryCursor` | ✅ | ✅ | class (pointer) | Document: not safe to share |
+| `LookaheadIterator` | ✅ | ✅ | class (pointer) | Document: not safe to share |
+
+### 2H. Recommended Usage Patterns
+
+```crystal
+# Pattern 1: Parser per fiber (recommended)
+spawn(name: "parse-worker") do
+  parser = Parser.new(language)
+  tree = parser.parse(nil, source)
+  tree_copy = tree.copy  # safe to send to another fiber
+  channel.send(tree_copy)
+end
+
+# Pattern 2: Channel-based parser pool
+parser_channel = Channel(Parser).new(capacity: 8)
+8.times { parser_channel.send(Parser.new(language)) }
+
+# Pattern 3: Share immutable Language and Query
+language = Language.new("crystal")
+query = Query.new(language, "(function_def name: (identifier) @name)")
+
+# These are safe to share across fibers:
+spawn { use_query(query) }
+spawn { use_language(language) }
+```
 
 ---
 
@@ -70,6 +225,7 @@ Specs: 73 examples, 0 failures, 11 errors (pre-existing Go parser dependency), 1
 | `utf16_text` | — | `lib.rs:2051` | ⬜ large scope |
 | `walk` | `walk` | `lib.rs:2061` | ✅ pre-existing |
 | `edit` | `NodeEditor` (separate class) | `lib.rs:2073` | ✅ pre-existing |
+| `==` (ts_node_eq) | `==` | `lib.rs:1745` | ✅ |
 
 ---
 
@@ -132,6 +288,10 @@ Specs: 73 examples, 0 failures, 11 errors (pre-existing Go parser dependency), 1
 | `field_id_for_name` | `field_id_for_name` | `lib.rs:637` | ✅ |
 | `next_state` | `next_state` | `lib.rs:658` | ✅ |
 | `lookahead_iterator` | `lookahead_iterator` | `lib.rs:677` | ✅ |
+| `copy` | `copy` | `lib.rs:500` | ✅ (`ts_language_copy` bound + `Language#copy`, spec/language_spec.cr) |
+| `delete` | — | `lib.rs:507` | ⬜ deferred (native delete is a no-op; cached instance is process-lifetime) |
+| `is_parseable?` | `is_parseable?` | — | ✅ (`ts_language_is_parseable` bound + `Language#is_parseable?`, spec/language_spec.cr) |
+| `name` (dynamic) | `name` (static) | — | ✅ (Crystal caches at construction) |
 
 ---
 
@@ -182,6 +342,7 @@ Specs: 73 examples, 0 failures, 11 errors (pre-existing Go parser dependency), 1
 | `general_predicates` | — | `lib.rs:2883` | ⬜ low priority |
 | `disable_capture` | `disable_capture` | `lib.rs:2892` | ✅ |
 | `disable_pattern` | `disable_pattern` | `lib.rs:2907` | ✅ |
+| `deep_clone` (`ts_query_copy`) | `copy` | `lib.rs:2919` | ✅ |
 | `is_pattern_rooted` | `is_pattern_rooted?` | `lib.rs:2914` | ✅ |
 | `is_pattern_non_local` | `is_pattern_non_local?` | `lib.rs:2921` | ✅ |
 | `is_pattern_guaranteed_at_step` | `is_pattern_guaranteed_at_step?` | `lib.rs:2931` | ✅ |
@@ -206,6 +367,7 @@ Specs: 73 examples, 0 failures, 11 errors (pre-existing Go parser dependency), 1
 | `set_containing_point_range` | `set_containing_point_range` | `lib.rs:3278` | ✅ |
 | `set_timeout_micros` | `set_timeout_micros` | — | ✅ |
 | `timeout_micros` | `timeout_micros` | — | ✅ |
+| `exec_with_options` (progress) | — | `lib.rs:3028` | ⬜ Phase 1 |
 | `matches` (stream) | — | `lib.rs:3050` | ⬜ Crystal uses exec+each_match |
 | `captures` (stream) | — | `lib.rs:3142` | ⬜ Crystal uses exec+each_capture |
 | `matches_with_options` | — | `lib.rs:3077` | ⬜ large scope (TSParseOptions) |
@@ -238,6 +400,25 @@ Specs: 73 examples, 0 failures, 11 errors (pre-existing Go parser dependency), 1
 
 ---
 
+## Optional: Crystal-Native Range Convenience (not C-API parity)
+
+`TreeSitter::Range` is the 2D source span (`start_byte/end_byte/start_point/end_point`)
+that mirrors the C `TSRange` and drives `included_ranges`, `changed_ranges`, and edit
+ops. It is **not** a Crystal `Range(A, B)`. To let callers slice/iterate source or
+intervals with native Crystal ergonomics, expose a derived byte `Range` without
+conflating the two types.
+
+| Addition | Why / sealed with | Status |
+|---|---|---|
+| `TreeSitter::Range#byte_range : Range(UInt32, UInt32)` → `start_byte..end_byte` | Slice `source[range.byte_range]`; additive, leaves `TSRange`/C-API coupling untouched | ⬜ optional |
+| Change `Node#byte_range` to return `Range(UInt32, UInt32)` (currently `Tuple(UInt32, UInt32)` at `node.cr:357`) | Matches Crystal's native slice/iterate idiom; **breaking** change to consider before v1.0 | ⬜ optional |
+| (deferred) `SourceBuffer`/reference-slice helper over a `Range` | Iterate/chunk a byte span | ⬜ optional |
+
+Note: keep `TreeSitter::Range` separate from Crystal's `Range`; only *convert* via the
+helpers above. Do not attempt to make `TreeSitter::Range` itself a Crystal `Range`.
+
+---
+
 ## Remaining Gaps (intentionally deferred)
 
 | Gap | Reason |
@@ -249,7 +430,8 @@ Specs: 73 examples, 0 failures, 11 errors (pre-existing Go parser dependency), 1
 | `ParseOptions` / `QueryCursorOptions` structs | Large scope; partial coverage via `parse_with_progress` |
 | `property_predicates` / `property_settings` | Existing `predicates_for_pattern` covers most use cases |
 | `Node#range` (combined) | Low priority convenience |
-| `InputEdit::edit_point` / `edit_range` | Crystal uses `TreeEditor`/`NodeEditor` differently |
+| `InputEdit::edit_point` / `edit_range` | Phase 1 ✓ done |
+| Crystal-native `Range` conversions | Optional; see "Optional: Crystal-Native Range Convenience" above |
 | Wasm support | Not applicable to Crystal |
 
 ---
@@ -258,5 +440,5 @@ Specs: 73 examples, 0 failures, 11 errors (pre-existing Go parser dependency), 1
 
 - **Upstream repo:** https://github.com/crystal-lang-tools/crystal-tree-sitter
 - **Fork:** https://github.com/dsisnero/crystal-tree-sitter
-- **Source of truth submodule:** `vendor/tree-sitter` (tree-sitter/tree-sitter, commit `519d511`, API v15)
-- **Crystal Specs:** 73 examples, 0 failures (11 pre-existing Go parser errors, 1 pre-existing pending)
+- **Source of truth submodule:** `vendor/tree-sitter` (tree-sitter/tree-sitter, tag `v0.27.0`, API v15)
+- **Crystal verification:** `spec/query_predicate_spec.cr` and `spec/query_copy_spec.cr` pass against the vendored `tree-sitter` `0.27.0` build; broader suite status remains environment-dependent.
