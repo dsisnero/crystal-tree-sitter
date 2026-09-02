@@ -503,6 +503,12 @@ lib LibTreeSitter
   # Check if two nodes are identical.
   fun ts_node_eq(self : TSNode, other : TSNode) : Bool
 
+  # Edit a point to keep it in-sync with source code that has been edited.
+  fun ts_point_edit(point : TSPoint*, point_byte : LibC::UInt32T*, edit : TSInputEdit*) : Void
+
+  # Edit a range to keep it in-sync with source code that has been edited.
+  fun ts_range_edit(range : TSRange*, edit : TSInputEdit*) : Void
+
   # TreeCursor
 
   # Create a new tree cursor starting from the given node.

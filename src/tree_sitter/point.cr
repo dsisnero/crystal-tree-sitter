@@ -24,6 +24,16 @@ module TreeSitter
       {row, column}
     end
 
+    # Edit the point to keep it in-sync with source code that has been edited,
+    # returning the edited byte offset alongside the edited point.
+    #
+    # The `byte` argument is the byte offset associated with this point.
+    def edit(edit : LibTreeSitter::TSInputEdit, byte : UInt32) : {Point, UInt32}
+      edited_byte = byte
+      LibTreeSitter.ts_point_edit(pointerof(@point), pointerof(edited_byte), pointerof(edit))
+      {Point.new(@point), edited_byte}
+    end
+
     def inspect(io : IO)
       io << '{' << row << ", " << column << '}'
     end

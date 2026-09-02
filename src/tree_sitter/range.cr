@@ -66,6 +66,11 @@ module TreeSitter
     delegate end_byte, to: @range
     delegate :end_byte=, to: @range
 
+    # Edit the range to keep it in-sync with source code that has been edited.
+    def edit(edit : LibTreeSitter::TSInputEdit)
+      LibTreeSitter.ts_range_edit(pointerof(@range), pointerof(edit))
+    end
+
     def to_unsafe
       @range
     end
