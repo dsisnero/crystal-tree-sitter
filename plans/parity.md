@@ -26,6 +26,7 @@ Legend for the method tables: **✅** done, **🔶#** remaining work lands in ph
 - PHASE 3 — Parser & Cursor Options: progress-aware `Parser#parse_with_options`
   and `QueryCursor#exec_with_options`, including cancellation and ABI option/state
   bindings.
+- PHASE 4 — UTF-16 text support: endian-aware parser helpers and `Node#utf16_text`.
 
 ## Phase Order
 
@@ -40,7 +41,7 @@ existing `parse_with_progress` to a full `parse_with_options`.
 - Expose `Parser#parse_with_options(...)` and `QueryCursor#exec_with_options(...)` progress callbacks.
 - Why first: it is the largest named gap and unblocks the custom-encoding phase.
 
-### PHASE 4 — UTF-16 text support
+### PHASE 4 — UTF-16 text support ✅
 - `Parser#parse_utf16_le` / `#parse_utf16_be` via `ts_parser_parse_string_encoding`.
 - `Node#utf16_text` (reinterpret node byte range as `UInt16` slice).
 - Why here: no dependency on Phase 3, but small and round-trips with Phase 3's encoding work.

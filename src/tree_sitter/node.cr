@@ -398,6 +398,11 @@ module TreeSitter
       @@string_pool.get(slice)
     end
 
+    # Get the UTF-16 code units covered by this node.
+    def utf16_text(source : Slice(UInt16)) : Slice(UInt16)
+      source[start_byte // 2, (end_byte - start_byte) // 2]
+    end
+
     # :nodoc:
     def to_unsafe
       @node

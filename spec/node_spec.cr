@@ -223,6 +223,15 @@ describe TreeSitter::Node do
     end
   end
 
+  describe "#utf16_text" do
+    it "returns code units covered by the node" do
+      source = Slice(UInt16).new(3) { |i| [91u16, 49u16, 93u16][i] }
+      tree = TreeSitter::Parser.new("json").parse_utf16_le(nil, source).not_nil!
+
+      tree.root_node.named_child(0).not_nil!.utf16_text(source).to_a.should eq([91u16, 49u16, 93u16])
+    end
+  end
+
   describe "#id" do
     it "returns a unique id" do
       root_node = parse_json("[1, null]").root_node

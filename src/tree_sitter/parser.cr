@@ -87,6 +87,24 @@ module TreeSitter
       parse?(old_tree, string) || raise Error.new("Parser error")
     end
 
+    # Parse UTF-16 little-endian source code units.
+    def parse_utf16_le(old_tree : Tree?, source : Slice(UInt16)) : Tree?
+      parse_utf16(old_tree, source, LibTreeSitter::TSInputEncoding::UTF16LE)
+    end
+
+    # Parse UTF-16 big-endian source code units.
+    def parse_utf16_be(old_tree : Tree?, source : Slice(UInt16)) : Tree?
+      bytes = Bytes.new(source.size * 2)
+      source.each_with_index do |code_unit, i|
+        bytes[i * 2] = (code_unit >> 8).to_u8
+        bytes[i * 2 + 1] = (code_unit & 0xff).to_u8
+      end
+      ptr = LibTreeSitter.ts_parser_parse_string_encoding(
+        to_unsafe, old_tree, bytes.to_unsafe, bytes.size.to_u32, LibTreeSitter::TSInputEncoding::UTF16BE,
+      )
+      Tree.new(ptr) if ptr
+    end
+
     # Parse a string and provide a progress callback that receives the current byte index.
     def parse_with_progress(old_tree : Tree?, string : String, &progress : UInt32 ->) : Tree?
       data = {string, progress}
@@ -264,6 +282,13 @@ module TreeSitter
     # :nodoc:
     def to_unsafe
       @parser
+    end
+
+    private def parse_utf16(old_tree : Tree?, source : Slice(UInt16), encoding : LibTreeSitter::TSInputEncoding) : Tree?
+      ptr = LibTreeSitter.ts_parser_parse_string_encoding(
+        to_unsafe, old_tree, source.to_unsafe.as(LibC::Char*), (source.size * 2).to_u32, encoding,
+      )
+      Tree.new(ptr) if ptr
     end
   end
 end

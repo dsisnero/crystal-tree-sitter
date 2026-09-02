@@ -31,4 +31,11 @@ describe TreeSitter::Parser do
       parser.parse_with_options(nil, source) { true }.should be_nil
     end
   end
+
+  it "parses UTF-16 little- and big-endian code units" do
+    source = Slice(UInt16).new(3) { |i| [91u16, 49u16, 93u16][i] }
+
+    TreeSitter::Parser.new("json").parse_utf16_le(nil, source).not_nil!.root_node.type.should eq("document")
+    TreeSitter::Parser.new("json").parse_utf16_be(nil, source).not_nil!.root_node.type.should eq("document")
+  end
 end

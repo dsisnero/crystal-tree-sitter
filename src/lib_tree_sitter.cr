@@ -259,7 +259,7 @@ lib LibTreeSitter
   fun ts_parser_parse_string_encoding(
     self : TSParser*, old_tree : TSTree*,
     string : LibC::Char*, length : LibC::UInt32T, encoding : TSInputEncoding,
-  )
+  ) : TSTree*
 
   # Instruct the parser to start the next parse from the beginning.
   #
