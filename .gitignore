@@ -12,3 +12,6 @@
 /shard.lock
 /tree_sitter
 benchmark/benchmark
+# Local grammar fixtures and config downloaded/built by `make test` / `make grammars`
+/vendor/grammars/
+/.tree-sitter-config/

@@ -163,6 +163,22 @@ cursor.each_capture do |capture|
 end
 ```
 
+## Building and Testing
+
+Tests load grammar drivers (e.g. `tree-sitter-json`, `tree-sitter-go`) at runtime,
+so they must be present. The Makefile will download and build the required grammars
+for you and run the specs against a repo-local tree-sitter config, so the build does
+not depend on your global `tree-sitter` CLI config:
+
+```sh
+make test      # build whatever grammars are needed (if missing), then run specs
+make grammars  # just build/download the grammar fixtures
+make clean     # remove the downloaded grammar fixtures and the local config
+```
+
+Requires a [Crystal](https://crystal-lang.org) toolchain and the
+[`tree-sitter`](https://github.com/tree-sitter/tree-sitter) CLI (`tree-sitter build`).
+
 ## Contributing
 
 1. Fork it (<https://github.com/crystal-lang-tools/crystal-tree-sitter/fork>)
