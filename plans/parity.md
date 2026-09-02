@@ -62,12 +62,12 @@ existing `parse_with_progress` to a full `parse_with_options`.
   (resolves the two remaining Phase-2C checkboxes).
 - Why here: independently useful; pairs the concurrency docs with runnable proof.
 
-### PHASE 8 — Node & range ergonomics (Crystal-native)
+### PHASE 8 — Node & range ergonomics (Crystal-native) ✅
 - `Node#range` (combined start/end point+byte tuple) — trivial C convenience.
 - `TreeSitter::Range#byte_range : Range(UInt32, UInt32)` (additive).
-- `Node#byte_range` change to `Range(UInt32, UInt32)` — **breaking**; staged last and
-  called out for review before v1.0.
-- Why here: nice-to-have ergonomics, purely additive except the flagged single rename.
+- `Node#byte_range` remains a `{start_byte, end_byte}` tuple by user decision;
+  `Node#range.byte_range` provides the Crystal-native slicing path.
+- Why here: additive ergonomics without a source-compatible API break.
 
 ### PHASE 9 — Docs & release-prep wrapper
 - Sweep the parity tables to ✅/❌, remove stale "deferred/low-priority" language, add
@@ -376,7 +376,7 @@ conflating the two types.
 | Addition | Why / sealed with | Status |
 |---|---|---|
 | `TreeSitter::Range#byte_range : Range(UInt32, UInt32)` → `start_byte...end_byte` | Slice `source[range.byte_range]`; additive, leaves `TSRange`/C-API coupling untouched | ✅ |
-| Change `Node#byte_range` to return `Range(UInt32, UInt32)` (currently `Tuple(UInt32, UInt32)` at `node.cr:357`) | Matches Crystal's native slice/iterate idiom; **breaking** change to consider before v1.0 | 🔶 Phase 8 (awaiting user review) |
+| Preserve `Node#byte_range` as `Tuple(UInt32, UInt32)` | Avoids a public breaking change; use `Node#range.byte_range` for Crystal slicing | ✅ intentional compatibility decision |
 | `SourceBuffer`/reference-slice helper over a `Range` | Iterate/chunk a byte span | 🔶 Phase 8 |
 
 Note: keep `TreeSitter::Range` separate from Crystal's `Range`; only *convert* via the
@@ -396,7 +396,7 @@ implementation → gates: `make test` + `make lint` + `crystal tool format --che
 - [x] **PHASE 5** — custom encoding parse (`Parser#parse_custom_encoding` + decode)
 - [x] **PHASE 6** — query predicate/public accessor API (`property_predicates`, `property_settings`, `general_predicates`, `new_raw`)
 - [x] **PHASE 7** — parser UX + concurrency examples (`Parser#clone`, `logger` getter, `Channel(Parser)` pool spec)
-- [ ] **PHASE 8** — node & range ergonomics (`Node#range`, `Range#byte_range`, `Node#byte_range` rename)
+- [x] **PHASE 8** — node & range ergonomics (`Node#range`, `Range#byte_range`; preserve compatible `Node#byte_range` tuple)
 - [ ] **PHASE 9** — docs & release-prep sweep; resolve the Cannot-Be-Done items with the user
 
 > **Any item not already assigned to a phase and not in "Cannot Be Done In Crystal" has no
