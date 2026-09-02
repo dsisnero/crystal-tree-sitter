@@ -33,6 +33,20 @@ module TreeSitter
       end
     end
 
+    protected def initialize(@query : LibTreeSitter::TSQuery*)
+      @pattern_count = LibTreeSitter.ts_query_pattern_count(to_unsafe)
+      @capture_count = LibTreeSitter.ts_query_capture_count(to_unsafe)
+      @string_count = LibTreeSitter.ts_query_string_count(to_unsafe)
+      @capture_names = Array(String).new(@capture_count) do |i|
+        ptr = LibTreeSitter.ts_query_capture_name_for_id(to_unsafe, i.to_u32, out strlen)
+        TreeSitter.string_pool.get(ptr, strlen)
+      end
+      @string_values = Array(String).new(@string_count) do |i|
+        ptr = LibTreeSitter.ts_query_string_value_for_id(to_unsafe, i.to_u32, out strlen)
+        TreeSitter.string_pool.get(ptr, strlen)
+      end
+    end
+
     # :nodoc:
     def finalize
       LibTreeSitter.ts_query_delete(to_unsafe)
@@ -106,6 +120,11 @@ module TreeSitter
     # associated with the pattern.
     def disable_pattern(pattern_index : UInt32) : Nil
       LibTreeSitter.ts_query_disable_pattern(to_unsafe, pattern_index)
+    end
+
+    # Create a deep copy of the query so it can be mutated independently.
+    def copy : Query
+      Query.new(LibTreeSitter.ts_query_copy(to_unsafe))
     end
 
     # Check if the given pattern in the query has a single root node.

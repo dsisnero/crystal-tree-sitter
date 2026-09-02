@@ -636,6 +636,9 @@ lib LibTreeSitter
   # Delete a query, freeing all of the memory that it used.
   fun ts_query_delete(TSQuery*) : Void
 
+  # Create a copy of a query.
+  fun ts_query_copy(TSQuery*) : TSQuery*
+
   # Get the number of patterns, captures, or string literals in the query.
   fun ts_query_pattern_count(TSQuery*) : LibC::UInt32T
   fun ts_query_capture_count(TSQuery*) : LibC::UInt32T
