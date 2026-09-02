@@ -33,9 +33,9 @@ The v0.27.0 `TSInput` struct has a `decode` field (`TSDecodeFunction`) for custo
 
 | Item | Status | Action |
 |---|---|---|
-| `TSDecodeFunction` typedef | ❌ not in Crystal | Define `alias TSDecodeFunction` in `lib_tree_sitter.cr` |
-| `TSInput.decode` field | ❌ missing | Add `decode : TSDecodeFunction` to `TSInput` struct |
-| `TSInputEncodingCustom` enum | ❌ missing (only UTF8/UTF16) | Add `Custom` variant to `TSInputEncoding` |
+| `TSDecodeFunction` typedef | ✅ bound | `alias TSDecodeFunction` in `lib_tree_sitter.cr` |
+| `TSInput.decode` field | ✅ added | `decode : TSDecodeFunction` on `TSInput` struct (v0.27.0 layout) |
+| `TSInputEncodingCustom` enum | ✅ added | Enum now `UTF8 / UTF16LE / UTF16BE / Custom` matching C ABI (spec/input_spec.cr) |
 
 ### 1C. ParseOptions / QueryCursorOptions Structs
 

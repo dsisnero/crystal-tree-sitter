@@ -25,8 +25,15 @@ lib LibTreeSitter
 
   enum TSInputEncoding
     UTF8
-    UTF16
+    UTF16LE
+    UTF16BE
+    Custom
   end
+
+  # Reads a single code point from `string` (of `length` bytes), writing it into
+  # `code_point`, and returns the number of bytes consumed. Used to decode
+  # custom encodings when `TSInput#encoding` is `TSInputEncoding::Custom`.
+  alias TSDecodeFunction = Proc(LibC::UInt8T*, LibC::UInt32T, LibC::Int32T*, LibC::UInt32T)
 
   enum TSSymbolType
     Regular
@@ -48,6 +55,7 @@ lib LibTreeSitter
     payload : Void*
     read : Proc(Void*, LibC::UInt32T, TSPoint, LibC::UInt32T*, LibC::Char*)
     encoding : TSInputEncoding
+    decode : TSDecodeFunction
   end
 
   enum TSLogType
@@ -181,7 +189,7 @@ lib LibTreeSitter
   # way that exactly matches the source code changes.
   #
   # The [`TSInput`] parameter lets you specify how to read the text. It has the
-  # following three fields:
+  # following fields:
   # 1. [`read`]: A function to retrieve a chunk of text at a given byte offset
   #    and (row, column) position. The function should return a pointer to the
   #    text and write its length to the [`bytes_read`] pointer. The parser does
@@ -191,7 +199,11 @@ lib LibTreeSitter
   # 2. [`payload`]: An arbitrary pointer that will be passed to each invocation
   #    of the [`read`] function.
   # 3. [`encoding`]: An indication of how the text is encoded. Either
-  #    `TSInputEncodingUTF8` or `TSInputEncodingUTF16`.
+  #    `TSInputEncodingUTF8`, `TSInputEncodingUTF16LE`, `TSInputEncodingUTF16BE`,
+  #    or `TSInputEncodingCustom`.
+  # 4. [`decode`]: A function to read one code point from the given input. This
+  #    is only used when [`encoding`] is `TSInputEncodingCustom`; for the built-in
+  #    UTF8/UTF16 encodings the library ignores it.
   #
   # This function returns a syntax tree on success, and `NULL` on failure. There
   # are three possible reasons for failure:
@@ -210,6 +222,7 @@ lib LibTreeSitter
   # [`read`]: TSInput::read
   # [`payload`]: TSInput::payload
   # [`encoding`]: TSInput::encoding
+  # [`decode`]: TSInput::decode
   # [`bytes_read`]: TSInput::read
   fun ts_parser_parse(self : TSParser*, old_tree : TSTree*, input : TSInput) : TSTree*
 
