@@ -25,11 +25,4 @@ describe TreeSitter::Language do
     copy.abi_version.should eq(lang.abi_version)
     copy.parseable?.should be_true
   end
-
-  pending "can detect language from file path" do
-    # TreeSitter::Language.detect("foo.json").should be_a(TreeSitter::JSONLanguage)
-    # TreeSitter::Language.detect("foo.c").should be_a(TreeSitter::CLanguage)
-    # TreeSitter::Language.detect("foo.h").should be_a(TreeSitter::CLanguage)
-    # TreeSitter::Language.detect("foo.abc").should eq(nil)
-  end
 end
