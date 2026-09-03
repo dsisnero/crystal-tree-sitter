@@ -238,7 +238,7 @@ describe TreeSitter::Node do
   describe "#utf16_text" do
     it "returns code units covered by the node" do
       source = Slice(UInt16).new(3) { |i| [91u16, 49u16, 93u16][i] }
-      tree = TreeSitter::Parser.new("json").parse_utf16_le(nil, source).not_nil!
+      tree = TreeSitter::Parser.new("json").parse_utf16_le(source).not_nil!
 
       tree.root_node.named_child(0).not_nil!.utf16_text(source).to_a.should eq([91u16, 49u16, 93u16])
     end
@@ -316,7 +316,7 @@ describe TreeSitter::Node do
     it "#parse_with_progress reports byte offsets" do
       parser = TreeSitter::Parser.new("json")
       offsets = [] of UInt32
-      tree = parser.parse_with_progress(nil, "[1, null]") do |offset|
+      tree = parser.parse_with_progress("[1, null]") do |offset|
         offsets << offset
       end
       tree.should_not be_nil

@@ -41,7 +41,7 @@ describe TreeSitter::Parser do
       1_u32
     }
 
-    tree = parser.parse_custom_encoding(nil, "[1]".to_slice, decoder)
+    tree = parser.parse_custom_encoding("[1]".to_slice, decoder)
     tree.not_nil!.root_node.type.should eq("document")
   end
 
@@ -51,7 +51,7 @@ describe TreeSitter::Parser do
       1_u32
     }
 
-    tree = TreeSitter::Parser.new("json").parse_custom_encoding(nil, "[1]".to_slice, decoder)
+    tree = TreeSitter::Parser.new("json").parse_custom_encoding("[1]".to_slice, decoder)
     tree.should_not be_nil
     tree.not_nil!.root_node.has_error?.should be_true
   end

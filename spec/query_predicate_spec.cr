@@ -9,7 +9,7 @@ describe TreeSitter::Query do
   describe "#predicates_for_pattern" do
     it "returns empty array for pattern with no predicates" do
       parser = TreeSitter::Parser.new("go")
-      parser.parse(nil, "package main").not_nil!
+      parser.parse("package main").not_nil!
       language = parser.language
 
       source = "(package_clause) @name"
@@ -36,7 +36,7 @@ describe TreeSitter::QueryCursor do
         io << "package main\n"
         10_000.times { |i| io << "func hello#{i}() {}\n" }
       end
-      tree = parser.parse(nil, source)
+      tree = parser.parse(source)
       query = TreeSitter::Query.new(parser.language, "(identifier) @name")
       cursor = TreeSitter::QueryCursor.new(query)
       offsets = [] of UInt32
@@ -58,7 +58,7 @@ describe TreeSitter::QueryCursor do
         io << "package main\n"
         1_000.times { |i| io << "func item#{i}() {}\n" }
       end
-      tree = parser.parse(nil, source).not_nil!
+      tree = parser.parse(source).not_nil!
       query = TreeSitter::Query.new(parser.language, "(identifier) @name")
       cursor = TreeSitter::QueryCursor.new(query)
       offsets = [] of UInt32
@@ -132,7 +132,7 @@ describe TreeSitter::Query do
   describe "#predicates_for_pattern" do
     it "parses #eq? predicate with capture and string args" do
       parser = TreeSitter::Parser.new("go")
-      parser.parse(nil, "package main\nfunc hello() {}").not_nil!
+      parser.parse("package main\nfunc hello() {}").not_nil!
       language = parser.language
 
       source = "(function_declaration name: (identifier) @name (#eq? @name \"hello\"))"
@@ -149,7 +149,7 @@ describe TreeSitter::Query do
 
     it "parses #match? predicate with capture and regex arg" do
       parser = TreeSitter::Parser.new("go")
-      parser.parse(nil, "package main\ntype Foo struct {}").not_nil!
+      parser.parse("package main\ntype Foo struct {}").not_nil!
       language = parser.language
 
       source = "(type_declaration (type_spec name: (type_identifier) @name) @def (#match? @def \"^type\"))"
@@ -166,7 +166,7 @@ describe TreeSitter::Query do
 
     it "parses #set! predicate with capture and key-value string args" do
       parser = TreeSitter::Parser.new("go")
-      parser.parse(nil, "package main").not_nil!
+      parser.parse("package main").not_nil!
       language = parser.language
 
       source = "(package_clause (package_identifier) @name @def (#set! @def is_export))"
@@ -182,7 +182,7 @@ describe TreeSitter::Query do
 
     it "parses #has-type? predicate with multiple type string args" do
       parser = TreeSitter::Parser.new("go")
-      parser.parse(nil, "package main\nfunc foo() {}").not_nil!
+      parser.parse("package main\nfunc foo() {}").not_nil!
       language = parser.language
 
       source = "(function_declaration name: (identifier) @name @def (#has-type? @def \"function_declaration\" \"method_declaration\"))"
@@ -200,7 +200,7 @@ describe TreeSitter::Query do
 
     it "parses #lineage-from-name! predicate with capture and delimiter" do
       parser = TreeSitter::Parser.new("go")
-      parser.parse(nil, "package main").not_nil!
+      parser.parse("package main").not_nil!
       language = parser.language
 
       source = "(package_clause (package_identifier) @name @def (#lineage-from-name! @name \"::\"))"
@@ -217,7 +217,7 @@ describe TreeSitter::Query do
 
     it "parses multiple predicates on one pattern" do
       parser = TreeSitter::Parser.new("go")
-      parser.parse(nil, "package main\nfunc hello() {}").not_nil!
+      parser.parse("package main\nfunc hello() {}").not_nil!
       language = parser.language
 
       source = "(function_declaration name: (identifier) @name @def (#eq? @name \"hello\") (#set! @def exported))"
@@ -230,7 +230,7 @@ describe TreeSitter::Query do
 
     it "parses #not-eq? predicate" do
       parser = TreeSitter::Parser.new("go")
-      parser.parse(nil, "package main\nfunc foo() {}").not_nil!
+      parser.parse("package main\nfunc foo() {}").not_nil!
       language = parser.language
 
       source = "(function_declaration name: (identifier) @name (#not-eq? @name \"constructor\"))"
@@ -242,7 +242,7 @@ describe TreeSitter::Query do
 
     it "parses #not-match? predicate" do
       parser = TreeSitter::Parser.new("go")
-      parser.parse(nil, "package main\nfunc foo() {}").not_nil!
+      parser.parse("package main\nfunc foo() {}").not_nil!
       language = parser.language
 
       source = "(function_declaration name: (identifier) @name (#not-match? @name \"^Test\"))"
@@ -254,7 +254,7 @@ describe TreeSitter::Query do
 
     it "parses #not-has-parent? predicate" do
       parser = TreeSitter::Parser.new("go")
-      parser.parse(nil, "package main\ntype T struct {}\nfunc (t T) Method() {}").not_nil!
+      parser.parse("package main\ntype T struct {}\nfunc (t T) Method() {}").not_nil!
       language = parser.language
 
       source = "(method_declaration name: (field_identifier) @name @def (#not-has-parent? @def export_statement))"
@@ -266,7 +266,7 @@ describe TreeSitter::Query do
 
     it "parses #strip! predicate with chars arg" do
       parser = TreeSitter::Parser.new("go")
-      parser.parse(nil, "package main").not_nil!
+      parser.parse("package main").not_nil!
       language = parser.language
 
       source = "(package_clause (package_identifier) @name (#strip! @name \"\\\\s\"))"

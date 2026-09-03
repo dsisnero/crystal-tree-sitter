@@ -3,7 +3,7 @@ require "./spec_helper"
 describe TreeSitter::Query do
   it "copies independently so disabling a pattern does not affect the original" do
     parser = TreeSitter::Parser.new("go")
-    tree = parser.parse(nil, "package main\nfunc hello() {}").not_nil!
+    tree = parser.parse("package main\nfunc hello() {}").not_nil!
     language = parser.language
 
     original = TreeSitter::Query.new(language, "(function_declaration) @func")

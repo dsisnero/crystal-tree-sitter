@@ -71,34 +71,36 @@ module TreeSitter
       Parser.new(language: language)
     end
 
-    def parse?(old_tree : Tree?, io : IO) : Tree?
+    # Parse `io`, optionally reusing an edited tree from the previous parse.
+    def parse?(io : IO, old_tree : Tree? = nil) : Tree?
       parse?(old_tree) do |index, _pos|
         io.seek(index)
         io.getb_to_end
       end
     end
 
-    def parse(old_tree : Tree?, io : IO) : Tree?
-      parse?(old_tree, io) || raise Error.new("Parser error")
+    def parse(io : IO, old_tree : Tree? = nil) : Tree?
+      parse?(io, old_tree) || raise Error.new("Parser error")
     end
 
-    def parse?(old_tree : Tree?, string : String) : Tree?
+    # Parse `string`, optionally reusing an edited tree from the previous parse.
+    def parse?(string : String, old_tree : Tree? = nil) : Tree?
       ptr = LibTreeSitter.ts_parser_parse_string(to_unsafe, old_tree, string, string.bytesize)
 
       Tree.new(ptr) if ptr
     end
 
-    def parse(old_tree : Tree?, string : String) : Tree
-      parse?(old_tree, string) || raise Error.new("Parser error")
+    def parse(string : String, old_tree : Tree? = nil) : Tree
+      parse?(string, old_tree) || raise Error.new("Parser error")
     end
 
     # Parse UTF-16 little-endian source code units.
-    def parse_utf16_le(old_tree : Tree?, source : Slice(UInt16)) : Tree?
+    def parse_utf16_le(source : Slice(UInt16), old_tree : Tree? = nil) : Tree?
       parse_utf16(old_tree, source, LibTreeSitter::TSInputEncoding::UTF16LE)
     end
 
     # Parse UTF-16 big-endian source code units.
-    def parse_utf16_be(old_tree : Tree?, source : Slice(UInt16)) : Tree?
+    def parse_utf16_be(source : Slice(UInt16), old_tree : Tree? = nil) : Tree?
       bytes = Bytes.new(source.size * 2)
       source.each_with_index do |code_unit, i|
         bytes[i * 2] = (code_unit >> 8).to_u8
@@ -113,7 +115,7 @@ module TreeSitter
     # Parse source whose bytes are decoded by `decoder`. The decoder receives
     # the unread bytes, writes one Unicode code point, and returns bytes consumed.
     def parse_custom_encoding(
-      old_tree : Tree?, source : Bytes, decoder : LibTreeSitter::TSDecodeFunction,
+      source : Bytes, decoder : LibTreeSitter::TSDecodeFunction, old_tree : Tree? = nil,
     ) : Tree?
       input = LibTreeSitter::TSInput.new
       input.payload = Box.box(source)
@@ -135,7 +137,7 @@ module TreeSitter
     end
 
     # Parse a string and provide a progress callback that receives the current byte index.
-    def parse_with_progress(old_tree : Tree?, string : String, &progress : UInt32 ->) : Tree?
+    def parse_with_progress(string : String, old_tree : Tree? = nil, &progress : UInt32 ->) : Tree?
       data = {string, progress}
       input = LibTreeSitter::TSInput.new
       input.payload = Box.box(data)
@@ -160,7 +162,7 @@ module TreeSitter
 
     # Parse a UTF-8 string and invoke `progress` periodically. Returning `true`
     # from the callback cancels parsing and returns `nil`.
-    def parse_with_options(old_tree : Tree?, string : String, &progress : ParseProgressCallback) : Tree?
+    def parse_with_options(string : String, old_tree : Tree? = nil, &progress : ParseProgressCallback) : Tree?
       data = {string, progress}
       input = LibTreeSitter::TSInput.new
       input.payload = Box.box(data)
@@ -187,7 +189,7 @@ module TreeSitter
       Tree.new(ptr) if ptr
     end
 
-    def parse?(old_tree : Tree?, &block : ReadProc) : Tree?
+    def parse?(old_tree : Tree? = nil, &block : ReadProc) : Tree?
       input = LibTreeSitter::TSInput.new
       input.payload = Box.box(block)
       input.encoding = LibTreeSitter::TSInputEncoding::UTF8
@@ -207,7 +209,7 @@ module TreeSitter
       Tree.new(ptr) if ptr
     end
 
-    def parse(old_tree : Tree?, &block : ReadProc) : Tree
+    def parse(old_tree : Tree? = nil, &block : ReadProc) : Tree
       parse?(old_tree, block) || raise Error.new("Parser error")
     end
 

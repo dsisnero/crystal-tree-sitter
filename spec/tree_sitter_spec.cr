@@ -4,7 +4,7 @@ describe TreeSitter do
   it "can reproduce the example in https://tree-sitter.github.io/tree-sitter/using-parsers" do
     parser = TreeSitter::Parser.new("json")
 
-    tree = parser.parse(nil, "[1, null]")
+    tree = parser.parse("[1, null]")
 
     root_node = tree.root_node
     array_node = root_node.named_child(0).not_nil!

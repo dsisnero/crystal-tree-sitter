@@ -1,11 +1,20 @@
 require "./spec_helper"
 
 describe TreeSitter::Parser do
+  describe "#parse" do
+    it "accepts source first and an optional previous Tree" do
+      parser = TreeSitter::Parser.new("json")
+      tree = parser.parse("[1]")
+
+      parser.parse("[1]", tree).root_node.to_s.should eq("(document (array (number)))")
+    end
+  end
+
   it "can parse from an IO object" do
     parser = TreeSitter::Parser.new("json")
 
     io = IO::Memory.new("[1, null]")
-    tree = parser.parse(nil, io).not_nil!
+    tree = parser.parse(io).not_nil!
     tree.root_node.to_s.should eq("(document (array (number) (null)))")
   end
 
@@ -15,7 +24,7 @@ describe TreeSitter::Parser do
       offsets = [] of UInt32
 
       source = "[#{(["1"] * 1_000).join(",")}]"
-      tree = parser.parse_with_options(nil, source) do |state|
+      tree = parser.parse_with_options(source) do |state|
         offsets << state.current_byte_offset
         false
       end
@@ -28,20 +37,20 @@ describe TreeSitter::Parser do
       parser = TreeSitter::Parser.new("json")
 
       source = "[#{(["1"] * 1_000).join(",")}]"
-      parser.parse_with_options(nil, source) { true }.should be_nil
+      parser.parse_with_options(source) { true }.should be_nil
     end
   end
 
   it "parses UTF-16 little- and big-endian code units" do
     source = Slice(UInt16).new(3) { |i| [91u16, 49u16, 93u16][i] }
 
-    TreeSitter::Parser.new("json").parse_utf16_le(nil, source).not_nil!.root_node.type.should eq("document")
-    TreeSitter::Parser.new("json").parse_utf16_be(nil, source).not_nil!.root_node.type.should eq("document")
+    TreeSitter::Parser.new("json").parse_utf16_le(source).not_nil!.root_node.type.should eq("document")
+    TreeSitter::Parser.new("json").parse_utf16_be(source).not_nil!.root_node.type.should eq("document")
   end
 
   it "preserves UTF-16 surrogate pairs in node text" do
     source = Slice(UInt16).new(7) { |i| [91u16, 34u16, 0xd83du16, 0xde00u16, 34u16, 93u16, 10u16][i] }
-    tree = TreeSitter::Parser.new("json").parse_utf16_le(nil, source).not_nil!
+    tree = TreeSitter::Parser.new("json").parse_utf16_le(source).not_nil!
 
     tree.root_node.named_child(0).not_nil!.utf16_text(source).to_a.should eq(source[0, 6].to_a)
   end
@@ -52,7 +61,7 @@ describe TreeSitter::Parser do
 
     clone.should_not be(parser)
     clone.language.name.should eq("json")
-    clone.parse(nil, "[1]").not_nil!.root_node.type.should eq("document")
+    clone.parse("[1]").not_nil!.root_node.type.should eq("document")
   end
 
   it "reports whether a logger has been configured" do
@@ -70,7 +79,7 @@ describe TreeSitter::Parser do
     parser = TreeSitter::Parser.new("json")
     parser.set_logger { |_type, message| messages << message }
 
-    parser.parse(nil, "[1]")
+    parser.parse("[1]")
     messages.should_not be_empty
   end
 
@@ -81,7 +90,7 @@ describe TreeSitter::Parser do
 
     spawn do
       parser = parsers.receive
-      results.send(parser.parse(nil, "[1]").not_nil!.root_node.type)
+      results.send(parser.parse("[1]").not_nil!.root_node.type)
       parsers.send(parser)
     end
 
@@ -94,7 +103,7 @@ describe TreeSitter::Parser do
 
     spawn do
       parser = TreeSitter::Parser.new("json")
-      results.send(parser.parse(nil, "[null]").not_nil!.root_node.type)
+      results.send(parser.parse("[null]").not_nil!.root_node.type)
     end
 
     results.receive.should eq("document")

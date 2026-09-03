@@ -27,6 +27,9 @@ Legend for the method tables: **✅** done, **🔶#** remaining work lands in ph
   and `QueryCursor#exec_with_options`, including cancellation and ABI option/state
   bindings.
 - PHASE 4 — UTF-16 text support: endian-aware parser helpers and `Node#utf16_text`.
+- Parser source-first ergonomics: `Parser#parse(source, old_tree = nil)` and all
+  source-taking parse variants now match Rust's source-first ordering; the former
+  C-ABI-shaped public ordering was intentionally removed as a breaking API change.
 
 ## Phase Order
 
@@ -97,7 +100,7 @@ Recommended usage (see PHASE 7 for executable versions):
 # Parser per fiber (recommended)
 spawn(name: "parse-worker") do
   parser = Parser.new(language)
-  tree = parser.parse(nil, source)
+  tree = parser.parse(source)
   channel.send(tree.copy) # copy is safe to share across fibers
 end
 
@@ -270,7 +273,7 @@ user-approved decisions keep the native binding focused and make every divergenc
 | `logger` (getter) | `logger` | `lib.rs:764` | ✅ |
 | `print_dot_graphs` | `print_dot_graphs` | `lib.rs:822` | ✅ pre-existing |
 | `stop_printing_dot_graphs` | `stop_printing_dot_graphs` | `lib.rs:849` | ✅ |
-| `parse` (string) | `parse`/`parse?` | `lib.rs:864` | ✅ pre-existing |
+| `parse` (string) | `parse`/`parse?` | `lib.rs:864` | ✅ source-first: `parse(source, old_tree = nil)` |
 | `parse_with` (callback) | `parse`/`parse?` (&block) | `lib.rs:891` | ✅ pre-existing |
 | `parse_utf16_le` / `parse_utf16_be` | `parse_utf16_le` / `parse_utf16_be` | `lib.rs:984` | ✅ |
 | `parse_custom_encoding` | `parse_custom_encoding` | `lib.rs:1246` | ✅ |

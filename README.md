@@ -34,7 +34,7 @@ ported as well, not yet on github-pages, but run `crystal doc` and have fun.
 require "tree_sitter"
 
 parser = TreeSitter::Parser.new("json")
-tree = parser.parse(nil, "[1, null]").not_nil!
+tree = parser.parse("[1, null]")
 root_node = tree.root_node
 
 root_node.type.should eq("document")
@@ -45,7 +45,7 @@ root_node.type.should eq("document")
 Cursor-based iterators for efficient tree walking (reuse cursor across iterations):
 
 ```crystal
-root_node = parser.parse(nil, source).not_nil!.root_node
+root_node = parser.parse(source).root_node
 cursor = TreeSitter::TreeCursor.new(root_node)
 
 # Iterate only named children (skip anonymous tokens like brackets)
@@ -101,7 +101,7 @@ offset_to_point = ->(offset : UInt32) { TreeSitter::Point.new(0, offset.to_i) }
 
 editor = TreeSitter::TreeEditor.new(old_tree, point_to_offset, offset_to_point)
 editor.insert(line: 0, column: 8, n_bytes: 6)
-new_tree = parser.parse(old_tree, new_source)
+new_tree = parser.parse(new_source, old_tree)
 ```
 
 ### Changed Ranges
@@ -109,7 +109,7 @@ new_tree = parser.parse(old_tree, new_source)
 Compare two trees to find what changed:
 
 ```crystal
-new_tree = parser.parse(old_tree, new_source).not_nil!
+new_tree = parser.parse(new_source, old_tree)
 new_tree.changed_ranges(old_tree).each do |range|
   puts "changed: bytes #{range.start_byte}..#{range.end_byte}"
 end
@@ -118,7 +118,7 @@ end
 ### Progress Callback
 
 ```crystal
-tree = parser.parse_with_options(nil, source) do |state|
+tree = parser.parse_with_options(source) do |state|
   puts "parsing at byte #{state.current_byte_offset}"
   false # return true to cancel parsing
 end
@@ -128,21 +128,21 @@ end
 
 ```crystal
 utf16 = Slice(UInt16).new(3) { |i| [91u16, 49u16, 93u16][i] } # "[1]"
-tree = parser.parse_utf16_le(nil, utf16).not_nil!
+tree = parser.parse_utf16_le(utf16).not_nil!
 puts tree.root_node.named_child(0).not_nil!.utf16_text(utf16).to_a
 
 decoder = ->(bytes : UInt8*, _length : UInt32, code_point : Int32*) : UInt32 {
   code_point.value = bytes[0].to_i32
   1_u32
 }
-tree = parser.parse_custom_encoding(nil, "[1]".to_slice, decoder)
+tree = parser.parse_custom_encoding("[1]".to_slice, decoder)
 ```
 
 ### Query Properties and Ranges
 
 ```crystal
 source = "[1]"
-tree = parser.parse(nil, source).not_nil!
+tree = parser.parse(source)
 query = TreeSitter::Query.new(parser.language, "((number) @value (#set! @value \"scope\" \"constant\"))")
 property = query.property_settings(0).first
 puts property.key # scope
@@ -162,7 +162,7 @@ pool.send(TreeSitter::Parser.new("json"))
 
 spawn do
   worker = pool.receive
-  tree = worker.parse(nil, "[1]")
+  tree = worker.parse("[1]")
   pool.send(worker)
 end
 ```

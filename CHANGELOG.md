@@ -4,6 +4,9 @@
 
 ### Tree-sitter v0.27 API parity
 
+- **Breaking:** parsing methods now take source first, with an optional previous
+  `Tree?` second (`parser.parse(source, old_tree = nil)`), matching the Rust API.
+  The former C-ABI-shaped `parse(old_tree, source)` order was removed.
 - Added progress-aware parsing and query execution with cancellable callbacks.
 - Added UTF-16 little-/big-endian parsing, UTF-16 node text, and custom decoding.
 - Added granular query property/predicate accessors and `Query.new_raw`.

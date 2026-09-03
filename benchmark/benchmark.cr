@@ -19,7 +19,7 @@ module Harness
   end
 
   def self.tree : TreeSitter::Tree
-    @@tree ||= parser.parse(nil, LARGE_JSON) || raise("failed to parse LARGE_JSON")
+    @@tree ||= parser.parse(LARGE_JSON) || raise("failed to parse LARGE_JSON")
   end
 
   def self.query : TreeSitter::Query
@@ -32,7 +32,7 @@ puts "Document: 200 JSON objects (~45KB)"
 puts
 
 Benchmark.bm do |x|
-  x.report("parse") { Harness.parser.parse(nil, LARGE_JSON) }
+  x.report("parse") { Harness.parser.parse(LARGE_JSON) }
   x.report("walk root→leaf") do
     t = Harness.tree
     cursor = TreeSitter::TreeCursor.new(t.root_node)
@@ -81,7 +81,7 @@ puts "=== IPS (iterations/sec, higher = better) ==="
 puts
 
 Benchmark.ips do |x|
-  x.report("parse medium") { Harness.parser.parse(nil, MEDIUM_JSON) }
+  x.report("parse medium") { Harness.parser.parse(MEDIUM_JSON) }
 
   x.report("children 200") do
     Harness.tree.root_node.children.each { |_| }
