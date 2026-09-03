@@ -23,6 +23,118 @@ module TreeSitter
     def remove(cursor : QueryCursor) : Nil
       LibTreeSitter.ts_query_cursor_remove_match(cursor, @id)
     end
+
+    # Evaluate this match's text-based query predicates against the given
+    # source text.
+    #
+    # Mirrors Rust's `QueryMatch::satisfies_text_predicates`. The C ABI no
+    # longer exposes a native `ts_query_cursor_satisfies_text_predicates`, so
+    # this binding evaluates the predicates itself using the pattern's parsed
+    # predicates and the capture text read from `source`.
+    #
+    # Only the text predicates are evaluated — `#eq?`, `#not-eq?`,
+    # `#any-eq?`, `#any-not-eq?`, `#match?`, `#not-match?`, `#any-match?`,
+    # `#any-not-match?`, `#any-of?`, and `#not-any-of?`. Property predicates
+    # (`#set!`, `#is?`, `#is-not?`) and general predicates are ignored.
+    #
+    # This is the primitive used by the `QueryCursor` streaming iterators that
+    # take a `source` (`Iterator(Capture)` via `#captures(source)`,
+    # `Iterator(Match)` via `#matches(source)`, and the matching `#next_*` pull
+    # methods), mirroring Rust's `QueryMatches` / `QueryCaptures` streams.
+    def satisfies_text_predicates?(query : Query, source : String) : Bool
+      query.predicates_for_pattern(pattern_index).each do |predicate|
+        case predicate.name
+        when "eq?", "not-eq?", "any-eq?", "any-not-eq?"
+          return false unless equal_text_predicate?(query, predicate, source)
+        when "match?", "not-match?", "any-match?", "any-not-match?"
+          return false unless match_text_predicate?(query, predicate, source)
+        when "any-of?", "not-any-of?"
+          return false unless any_of_text_predicate?(query, predicate, source)
+        end
+      end
+      true
+    end
+
+    # Resolve a predicate capture argument to a numeric capture index through
+    # the query's capture-name table.
+    private def arg_capture_index(query : Query, predicate : Predicate, arg : Predicate::Arg) : UInt32
+      query.capture_index_for_name(arg.value) ||
+        raise("cannot resolve capture '#{arg.value}' for predicate '#{predicate.name}'")
+    end
+
+    # eq? family: compare captured node text against a string or another capture.
+    private def equal_text_predicate?(query : Query, predicate : Predicate, source : String) : Bool
+      capture_arg = predicate.args.find(&.capture?)
+      return true if capture_arg.nil?
+      capture_ix = arg_capture_index(query, predicate, capture_arg)
+      nodes = nodes_for_capture_index(capture_ix)
+
+      value_arg = predicate.args.find(&.string?)
+      if value_arg
+        value = value_arg.value
+        results = nodes.map { |node| node.text(source) == value }
+      else
+        comparison = predicate.args.find { |a| a.capture? && a != capture_arg }
+        return true if comparison.nil?
+        other_ix = arg_capture_index(query, predicate, comparison)
+        other_texts = nodes_for_capture_index(other_ix).map(&.text(source))
+        # Compare each captured node against every other captured node.
+        results = nodes.map do |node|
+          other_texts.any? { |other| node.text(source) == other }
+        end
+      end
+
+      aggregate(results, predicate.name)
+    end
+
+    # match? family: test captured node text against a regex string literal.
+    private def match_text_predicate?(query : Query, predicate : Predicate, source : String) : Bool
+      capture_arg = predicate.args.find(&.capture?)
+      regex_arg = predicate.args.find(&.string?)
+      return true if capture_arg.nil? || regex_arg.nil?
+      capture_ix = arg_capture_index(query, predicate, capture_arg)
+      nodes = nodes_for_capture_index(capture_ix)
+      regex = Regex.new(regex_arg.value)
+      results = nodes.map { |node| regex.matches?(node.text(source)) }
+      aggregate(results, predicate.name)
+    end
+
+    # any-of? family: check captured node text against a list of string literals.
+    private def any_of_text_predicate?(query : Query, predicate : Predicate, source : String) : Bool
+      capture_arg = predicate.args.find(&.capture?)
+      return true if capture_arg.nil?
+      capture_ix = arg_capture_index(query, predicate, capture_arg)
+      nodes = nodes_for_capture_index(capture_ix)
+      values = predicate.args.select(&.string?).map(&.value)
+      results = nodes.map { |node| values.includes?(node.text(source)) }
+      aggregate(results, predicate.name)
+    end
+
+    # Aggregate per-node results using Enumerable semantics that mirror the
+    # Rust binding's intended `all`/`any` plus positive/negative flags:
+    #
+    #   eq?/match?            all nodes must pass    -> results.all?
+    #   not-eq?/not-match?    all nodes must fail    -> results.none?
+    #   any-eq?/any-match?    some node must pass    -> results.any?
+    #   any-not-*             some node must fail    -> results.any? { |r| !r }
+    #
+    # Note: the upstream Rust `satisfies_text_predicates` falls through to
+    # `true` for the `any-*` cases even when nothing matches, which makes them
+    # vacuously pass. This Crystal port keeps the intended (non-vacuous)
+    # semantics instead.
+    private def aggregate(results : Array(Bool), name : String) : Bool
+      match_all = !name.starts_with?("any-")
+      positive = !name.starts_with?("not-") && !name.starts_with?("any-not-")
+
+      if match_all
+        positive ? results.all? : results.none?
+      elsif positive
+        # ameba:disable Performance/AnyInsteadOfPresent -- Array(Bool)#present? means non-empty, not "any true".
+        results.any?
+      else
+        results.any? { |r| !r }
+      end
+    end
   end
 
   # A stateful object for executing a query on a syntax tree.
@@ -147,14 +259,87 @@ module TreeSitter
       Capture.new(rule, Node.new_unsafe(capture.node), capture.index.to_u32)
     end
 
+    # Returns the next capture whose match satisfies its text predicates, or
+    # *nil*.
+    #
+    # Mirrors Rust's `QueryCaptures` streaming iterator: when a candidate
+    # capture's match fails its text predicates, the match is removed from the
+    # cursor (so it is not yielded or revisited) and the next capture is pulled.
+    def next_capture(source : String) : Capture?
+      loop do
+        ok = LibTreeSitter.ts_query_cursor_next_capture(self, out match, out capture_index)
+        return unless ok
+
+        capture = match.captures[capture_index]
+        next if LibTreeSitter.ts_node_is_null(capture.node)
+
+        full = build_match(match)
+        if full.satisfies_text_predicates?(@query, source)
+          rule = capture_name_for(capture)
+          return Capture.new(rule, Node.new_unsafe(capture.node), capture.index.to_u32)
+        else
+          full.remove(self)
+        end
+      end
+    end
+
+    def each_capture(& : Capture -> Nil)
+      while capture = next_capture
+        yield capture
+      end
+    end
+
     # Returns the next match or *nil*.
     # A match contains all captures for a pattern.
     def next_match : Match?
       match = LibTreeSitter::TSQueryMatch.new
       ok = LibTreeSitter.ts_query_cursor_next_match(self, pointerof(match))
       return unless ok
+      build_match(match)
+    end
 
-      # Collect all captures for this match
+    # Returns the next match that satisfies its text predicates, or *nil*.
+    #
+    # Mirrors Rust's `QueryMatches` streaming iterator: candidate matches that
+    # fail their text predicates are skipped on the fly and never yielded.
+    def next_match(source : String) : Match?
+      loop do
+        match = next_match
+        return if match.nil?
+        return match if match.satisfies_text_predicates?(@query, source)
+      end
+    end
+
+    def each_match(& : Match -> Nil)
+      while match = next_match
+        yield match
+      end
+    end
+
+    # Return a lazy, streaming `Iterator(Match)` over the cursor's matches,
+    # filtering each match by its text predicates against `source`.
+    #
+    # This is the Crystal analogue of Rust's `QueryMatches::StreamingIterator`:
+    # elements are pulled one at a time via `Iterator(Match)#next`, and
+    # `Iterator`'s `select`/`reject`/`map`/`take` chain lazily without
+    # materializing the full result set. Matches that fail their text
+    # predicates are skipped on the fly.
+    def matches(source : String) : MatchIterator
+      MatchIterator.new(self, source)
+    end
+
+    # Return a lazy, streaming `Iterator(Capture)` over the cursor's captures,
+    # filtering each capture's match by its text predicates against `source`.
+    #
+    # This is the Crystal analogue of Rust's `QueryCaptures::StreamingIterator`.
+    # Captures whose match fails its text predicates are removed from the cursor
+    # (via `Match#remove`) so they are never re-emitted.
+    def captures(source : String) : CaptureIterator
+      CaptureIterator.new(self, source)
+    end
+
+    # Build a `Match` wrapper from the raw C match struct.
+    private def build_match(match : LibTreeSitter::TSQueryMatch) : Match
       captures = Array(Capture).new(match.capture_count)
       match.capture_count.times do |i|
         capture = match.captures[i]
@@ -165,18 +350,6 @@ module TreeSitter
       end
 
       Match.new(match.pattern_index, captures, match.id.to_u32)
-    end
-
-    def each_capture(& : Capture -> Nil)
-      while capture = next_capture
-        yield capture
-      end
-    end
-
-    def each_match(& : Match -> Nil)
-      while match = next_match
-        yield match
-      end
     end
 
     # Return the maximum number of in-progress matches for this cursor.
@@ -253,6 +426,40 @@ module TreeSitter
 
     def to_unsafe
       @cursor
+    end
+
+    # A lazy, streaming iterator over a cursor's matches, evaluating each
+    # match's text predicates against a fixed `source`.
+    #
+    # Mirrors Rust's `QueryMatches`. Each `next` pulls the next qualifying
+    # match from the underlying cursor, skipping those that fail their text
+    # predicates.
+    class MatchIterator
+      include Iterator(Match)
+
+      def initialize(@cursor : QueryCursor, @source : String)
+      end
+
+      def next : Match | Iterator::Stop
+        @cursor.next_match(@source) || stop
+      end
+    end
+
+    # A lazy, streaming iterator over a cursor's captures, evaluating each
+    # capture's match text predicates against a fixed `source`.
+    #
+    # Mirrors Rust's `QueryCaptures`: a candidate whose match fails its text
+    # predicates is removed from the cursor (via `Match#remove`) so it is not
+    # re-emitted, then iteration continues with the next capture.
+    class CaptureIterator
+      include Iterator(Capture)
+
+      def initialize(@cursor : QueryCursor, @source : String)
+      end
+
+      def next : Capture | Iterator::Stop
+        @cursor.next_capture(@source) || stop
+      end
     end
   end
 end

@@ -89,6 +89,39 @@ cursor.each_match do |match|
 end
 ```
 
+### Query with Text Predicates
+
+Text predicates (`#eq?`, `#match?`, any-of variants) are evaluated lazily during
+iteration, mirroring tree-sitter's Rust bindings. Pass the `source` string to
+`#matches(source)` or `#captures(source)` to get a streaming `Iterator`; matches
+that fail their predicates are skipped on the fly (and rejected capture matches
+are removed from the cursor so they are never revisited):
+
+```crystal
+source = "package main\nfunc foo() {}\nfunc Bar() {}\n"
+query = TreeSitter::Query.new(parser.language,
+  "(function_declaration name: (identifier) @name (#match? @name \"^[a-z]\"))")
+cursor = TreeSitter::QueryCursor.new(query)
+cursor.exec(parser.parse(source).root_node)
+
+# Lazy, streaming matches — only func foo passes the #match? predicate.
+cursor.matches(source).each do |match|
+  name = match.captures.find! { |c| c.rule == "name" }.text(source)
+  puts name # => "foo"
+end
+
+# Chain Iterator operations without materializing the full result set.
+names = cursor.matches(source)
+  .map { |m| m.captures.find! { |c| c.rule == "name" }.text(source) }
+  .to_a
+  .sort
+
+# Or iterate captures directly (rejected matches are removed from the cursor).
+cursor.captures(source).each do |capture|
+  puts capture.text(source)
+end
+```
+
 ### Editing
 
 Once you have a syntax tree, you can edit it when source code changes.

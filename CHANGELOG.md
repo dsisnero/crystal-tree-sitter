@@ -13,6 +13,12 @@
 - Added `Parser#clone`, `Parser#logger`, and executable safe parser-pool/per-fiber examples.
 - Added `Node#range` and end-exclusive `Range#byte_range`; `Node#byte_range` remains a
   compatible `{start_byte, end_byte}` tuple.
+- Added streaming text-predicate iteration: `QueryCursor#matches(source)` /
+  `#captures(source)` return lazy `Iterator(Match)` / `Iterator(Capture)` that evaluate
+  `#eq?`/`#match?`/any-of text predicates on the fly (mirroring Rust's `QueryMatches` /
+  `QueryCaptures`), with rejected capture matches removed from the cursor via
+  `Match#remove`. Also added filtered `QueryCursor#next_match(source)` /
+  `#next_capture(source)` and `Match#satisfies_text_predicates?(query, source)`.
 
 ## v0.3.0 (2026-06-10)
 

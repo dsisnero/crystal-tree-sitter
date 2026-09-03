@@ -277,3 +277,144 @@ describe TreeSitter::Query do
     end
   end
 end
+
+describe TreeSitter::Match do
+  describe "#satisfies_text_predicates?" do
+    it "evaluates #match? against capture text when explicitly called" do
+      parser = TreeSitter::Parser.new("go")
+      source = "package main\nfunc foo() {}\nfunc Bar() {}\n"
+      parser.parse(source).not_nil!
+      language = parser.language
+
+      query = TreeSitter::Query.new(language, "(function_declaration name: (identifier) @name (#match? @name \"^[a-z]\"))")
+      cursor = TreeSitter::QueryCursor.new(query)
+      cursor.exec(parser.parse(source).not_nil!.root_node)
+
+      results = {} of String => Bool
+      cursor.each_match do |match|
+        name = match.captures.find! { |c| c.rule == "name" }.text(source)
+        results[name] = match.satisfies_text_predicates?(query, source)
+      end
+
+      results["foo"].should be_true
+      results["Bar"].should be_false
+
+      # Property/general predicates are not evaluated by this opt-in call.
+    end
+
+    it "evaluates #eq? and #any-of? text predicates" do
+      parser = TreeSitter::Parser.new("go")
+      source = "package main\nfunc foo() {}\nfunc bar() {}\n"
+      parser.parse(source).not_nil!
+      language = parser.language
+
+      eq_query = TreeSitter::Query.new(language, "(function_declaration name: (identifier) @name (#eq? @name \"foo\"))")
+      eq_cursor = TreeSitter::QueryCursor.new(eq_query)
+      eq_cursor.exec(parser.parse(source).not_nil!.root_node)
+      eq_results = {} of String => Bool
+      eq_cursor.each_match do |match|
+        name = match.captures.find! { |c| c.rule == "name" }.text(source)
+        eq_results[name] = match.satisfies_text_predicates?(eq_query, source)
+      end
+      eq_results["foo"].should be_true
+      eq_results["bar"].should be_false
+
+      any_query = TreeSitter::Query.new(language, "(function_declaration name: (identifier) @name (#any-of? @name \"foo\" \"baz\"))")
+      any_cursor = TreeSitter::QueryCursor.new(any_query)
+      any_cursor.exec(parser.parse(source).not_nil!.root_node)
+      any_names = [] of String
+      any_cursor.each_match do |match|
+        if match.satisfies_text_predicates?(any_query, source)
+          any_names << match.captures.find! { |c| c.rule == "name" }.text(source)
+        end
+      end
+      any_names.should contain("foo")
+      any_names.should_not contain("bar")
+    end
+
+    it "returns true for matches with no text predicates" do
+      parser = TreeSitter::Parser.new("go")
+      source = "package main\nfunc foo() {}\n"
+      parser.parse(source).not_nil!
+      language = parser.language
+
+      query = TreeSitter::Query.new(language, "(function_declaration name: (identifier) @name)")
+      cursor = TreeSitter::QueryCursor.new(query)
+      cursor.exec(parser.parse(source).not_nil!.root_node)
+      cursor.each_match do |match|
+        match.satisfies_text_predicates?(query, source).should be_true
+      end
+    end
+  end
+end
+
+describe TreeSitter::QueryCursor do
+  describe "text-predicate filtered iteration" do
+    it "filters #match? matches streaming via #matches(source)" do
+      parser = TreeSitter::Parser.new("go")
+      source = "package main\nfunc foo() {}\nfunc Bar() {}\n"
+      query = TreeSitter::Query.new(parser.language, "(function_declaration name: (identifier) @name (#match? @name \"^[a-z]\"))")
+      cursor = TreeSitter::QueryCursor.new(query)
+      cursor.exec(parser.parse(source).not_nil!.root_node)
+
+      names = [] of String
+      cursor.matches(source).each do |match|
+        names << match.captures.find! { |c| c.rule == "name" }.text(source)
+      end
+      names.should eq(["foo"])
+    end
+
+    it "chains lazily with Iterator operations via #matches(source)" do
+      parser = TreeSitter::Parser.new("go")
+      source = "package main\nfunc foo() {}\nfunc Bar() {}\nfunc baz() {}\n"
+      query = TreeSitter::Query.new(parser.language, "(function_declaration name: (identifier) @name (#match? @name \"^[a-z]\"))")
+      cursor = TreeSitter::QueryCursor.new(query)
+      cursor.exec(parser.parse(source).not_nil!.root_node)
+
+      names = cursor.matches(source)
+        # ameba:disable Style/VerboseBlock -- inner #find! block prevents &. shorthand.
+        .map { |match| match.captures.find! { |c| c.rule == "name" }.text(source) }
+        .to_a
+        .sort
+      names.should eq(["baz", "foo"])
+    end
+
+    it "filters #eq? matches via #next_match(source)" do
+      parser = TreeSitter::Parser.new("go")
+      source = "package main\nfunc foo() {}\nfunc bar() {}\n"
+      query = TreeSitter::Query.new(parser.language, "(function_declaration name: (identifier) @name (#eq? @name \"foo\"))")
+      cursor = TreeSitter::QueryCursor.new(query)
+      cursor.exec(parser.parse(source).not_nil!.root_node)
+
+      match = cursor.next_match(source)
+      match.should_not be_nil
+      match.not_nil!.captures.find! { |c| c.rule == "name" }.text(source).should eq("foo")
+      cursor.next_match(source).should be_nil
+    end
+
+    it "filters captures and removes rejected matches via #captures(source)" do
+      parser = TreeSitter::Parser.new("go")
+      source = "package main\nfunc foo() {}\nfunc Bar() {}\n"
+      query = TreeSitter::Query.new(parser.language, "(function_declaration name: (identifier) @name (#match? @name \"^[a-z]\"))")
+      cursor = TreeSitter::QueryCursor.new(query)
+      cursor.exec(parser.parse(source).not_nil!.root_node)
+
+      names = [] of String
+      cursor.captures(source).each do |capture|
+        names << capture.text(source)
+      end
+      names.should eq(["foo"])
+    end
+
+    it "passes through all captures via #captures(source) when there are no text predicates" do
+      parser = TreeSitter::Parser.new("go")
+      source = "package main\nfunc foo() {}\nfunc Bar() {}\n"
+      query = TreeSitter::Query.new(parser.language, "(function_declaration name: (identifier) @name)")
+      cursor = TreeSitter::QueryCursor.new(query)
+      cursor.exec(parser.parse(source).not_nil!.root_node)
+
+      names = cursor.captures(source).map(&.text(source)).to_a.sort
+      names.should eq(["Bar", "foo"])
+    end
+  end
+end

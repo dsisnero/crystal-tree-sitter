@@ -57,6 +57,11 @@ existing `parse_with_progress` to a full `parse_with_options`.
 - `Query#property_predicates`, `Query#property_settings`, `Query#general_predicates`,
   `Query#new_raw`.
 - Refactor the monolithic `predicates_for_pattern` around the granular accessors.
+- **Plus:** text-predicate engine wired like Rust — `Match#satisfies_text_predicates?(query, source)`
+  plus lazy streaming `Iterator(Match)` / `Iterator(Capture)` via `QueryCursor#matches(source)` /
+  `#captures(source)` (the latter calling `Match#remove` on rejected capture matches), mirroring
+  `QueryMatches` / `QueryCaptures`. Source-less iterators stay unfiltered; source-taking iterators
+  filter on the fly and never yield failed matches.
 - Why here: completes the Rust `Query` surface that `predicates_for_pattern` now covers only partially.
 
 ### PHASE 7 — Parser UX + thread-safety examples ✅
@@ -124,7 +129,7 @@ user-approved decisions keep the native binding focused and make every divergenc
 | Gap | Why it cannot be done | Decision and rationale |
 |---|---|---|
 | `Parser#set_cancellation_flag` / `#cancellation_flag` | Symbol **removed** from tree-sitter; present in no v0.27.0 header or dylib (only existed ≤ v0.26). | **Drop.** Recreating it would require an obsolete/patched native library or unsafe shared-pointer state. `Parser#parse_with_options` provides supported cancellation through its progress callback. |
-| `Match#satisfies_text_predicates` | The v0.27.0 C ABI **removed** `ts_query_cursor_satisfies_text_predicates`; Rust's method uses private Rust query internals. | **Drop the exact API.** An emulation needs a Crystal predicate engine, source-text provider, regex semantics, and a new explicit API. Add that later only if a consumer such as the highlighter needs it. |
+| `Match#satisfies_text_predicates` | The v0.27.0 C ABI **removed** `ts_query_cursor_satisfies_text_predicates`; Rust's method uses private Rust query internals. | **Emulated** as a Crystal predicate engine: `Match#satisfies_text_predicates?(query, source)`. The C ABI exposes predicates via `ts_query_predicates_for_pattern`, so this binding evaluates them itself (text predicates `#eq?/#match?/#any-of?` &c.) against capture text read from a caller-provided `source` string. Wired into streaming like Rust: `QueryCursor#matches(source)` (`Iterator(Match)`)/`#next_match(source)` mirror `QueryMatches`, and `#captures(source)` (`Iterator(Capture)`)/`#next_capture(source)` mirror `QueryCaptures` — the latter calling `Match#remove` on rejected matches so the cursor does not revisit them. Source-less `#each_match`/`#each_capture`/`#next_*` remain unfiltered. |
 | WebAssembly / `wasm` grammars | Parsing WASM needs a WASM engine (wasmtime &c.); Crystal has no built-in runtime. | **Drop.** A production implementation needs runtime FFI, ABI adapters, lifecycle/error handling, cross-platform packaging, and resource limits. Native grammars cover this binding's intended use. |
 | `TextProvider` / `Decode` **traits** | Rust **traits** on the Rust (*not* C) surface; a C-ABI binding has no trait concept. | **N/A.** Crystal uses idiomatic blocks/procs, `IO`, `Bytes`, `Slice(UInt16)`, and explicit decoder callbacks; the library already exposes those alternatives. |
 
@@ -142,8 +147,8 @@ user-approved decisions keep the native binding focused and make every divergenc
 | `LookaheadIterator` (Iterator\<UInt16\>) | `LookaheadIterator` | `lib.rs:2362` | ✅ |
 | `LookaheadIterator#iter_names` | `LookaheadNamesIterator` | `lib.rs:2352` | ✅ |
 | `Match#nodes_for_capture_index` | `Array(Node)` | `lib.rs:3326` | ✅ |
-| `QueryMatches` (StreamingIterator) | `QueryCursor#each_match` block | `lib.rs:3476` | ✅ Crystal-idiomatic |
-| `QueryCaptures` (StreamingIterator) | `QueryCursor#each_capture` block | `lib.rs:3513` | ✅ Crystal-idiomatic |
+| `QueryMatches` (StreamingIterator) | `QueryCursor#matches(source)` → `Iterator(Match)` | `lib.rs:3476` | ✅ Crystal-idiomatic |
+| `QueryCaptures` (StreamingIterator) | `QueryCursor#captures(source)` → `Iterator(Capture)` | `lib.rs:3513` | ✅ Crystal-idiomatic |
 
 ---
 
