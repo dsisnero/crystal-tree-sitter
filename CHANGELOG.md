@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## v0.4.0 (2026-09-03)
+
 ### Tree-sitter v0.27 API parity
 
 - **Breaking:** parsing methods now take source first, with an optional previous
