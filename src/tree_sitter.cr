@@ -91,6 +91,7 @@ module TreeSitter
   end
 
   protected class_getter string_pool = StringPool.new
+  @@string_pool_mutex = Mutex.new
 
   # Init tree-sitter by telling it to use the Crystal GC as memory allocator.
   # This is called automatically when you require tree-sitter unless you compile with `-Dcrystal_tree_sitter_no_init`.
@@ -99,6 +100,15 @@ module TreeSitter
   end
 
   extend self
+
+  # Intern a C string through the process-wide pool. `StringPool` mutates its
+  # backing table, so callers from parallel execution contexts must serialize
+  # access here.
+  #
+  # :nodoc:
+  def intern(ptr : UInt8*, length : Int) : String
+    @@string_pool_mutex.synchronize { string_pool.get(ptr, length) }
+  end
 
   # Format an S-expression string with indentation for readability.
   #

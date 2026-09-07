@@ -86,7 +86,7 @@ module TreeSitter
       return stop unless LibTreeSitter.ts_lookahead_iterator_next(@iterator)
       ptr = LibTreeSitter.ts_lookahead_iterator_current_symbol_name(@iterator)
       return stop if ptr.null?
-      TreeSitter.string_pool.get(ptr, LibC.strlen(ptr))
+      TreeSitter.intern(ptr, LibC.strlen(ptr))
     end
   end
 end

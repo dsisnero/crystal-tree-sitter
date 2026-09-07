@@ -7,13 +7,13 @@ module TreeSitter
   class Language
     @lang : LibTreeSitter::TSLanguage*
     getter name : String
-    protected class_property loaded_languages = Hash(LibTreeSitter::TSLanguage*, Language).new
 
     @@loaded_languages = Hash(LibTreeSitter::TSLanguage*, Language).new
+    @@loaded_languages_mutex = Mutex.new
 
     # :nodoc:
     def self.new(ptr : LibTreeSitter::TSLanguage*)
-      @@loaded_languages[ptr]
+      @@loaded_languages_mutex.synchronize { @@loaded_languages[ptr] }
     end
 
     def self.new(name : String)
@@ -22,10 +22,22 @@ module TreeSitter
 
     # :nodoc:
     def self.new(name : String, ptr : LibTreeSitter::TSLanguage*)
-      @@loaded_languages[ptr] ||= begin
+      fetch_or_load(ptr) do
         instance = Language.allocate
         instance.initialize(name, ptr)
         instance
+      end
+    end
+
+    # Atomically return the language registered for *ptr*, registering the
+    # result of the block when it has not yet been seen. This protects the
+    # process-wide registry while parsers are created from parallel execution
+    # contexts.
+    #
+    # :nodoc:
+    def self.fetch_or_load(ptr : LibTreeSitter::TSLanguage*, & : -> Language) : Language
+      @@loaded_languages_mutex.synchronize do
+        @@loaded_languages[ptr] ||= yield
       end
     end
 
