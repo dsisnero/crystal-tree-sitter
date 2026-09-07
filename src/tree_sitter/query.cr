@@ -27,11 +27,11 @@ module TreeSitter
       @string_count = LibTreeSitter.ts_query_string_count(to_unsafe)
       @capture_names = Array(String).new(@capture_count) do |i|
         ptr = LibTreeSitter.ts_query_capture_name_for_id(to_unsafe, i.to_u32, out strlen)
-        TreeSitter.string_pool.get(ptr, strlen)
+        TreeSitter.intern(ptr, strlen)
       end
       @string_values = Array(String).new(@string_count) do |i|
         ptr = LibTreeSitter.ts_query_string_value_for_id(to_unsafe, i.to_u32, out strlen)
-        TreeSitter.string_pool.get(ptr, strlen)
+        TreeSitter.intern(ptr, strlen)
       end
       validate_predicates! if validate_predicates
     end
@@ -47,11 +47,11 @@ module TreeSitter
       @string_count = LibTreeSitter.ts_query_string_count(to_unsafe)
       @capture_names = Array(String).new(@capture_count) do |i|
         ptr = LibTreeSitter.ts_query_capture_name_for_id(to_unsafe, i.to_u32, out strlen)
-        TreeSitter.string_pool.get(ptr, strlen)
+        TreeSitter.intern(ptr, strlen)
       end
       @string_values = Array(String).new(@string_count) do |i|
         ptr = LibTreeSitter.ts_query_string_value_for_id(to_unsafe, i.to_u32, out strlen)
-        TreeSitter.string_pool.get(ptr, strlen)
+        TreeSitter.intern(ptr, strlen)
       end
     end
 
