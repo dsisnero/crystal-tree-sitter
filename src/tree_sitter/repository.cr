@@ -1,6 +1,9 @@
 require "colorize"
 require "./config"
 require "./language"
+{% if flag?(:win32) %}
+  require "c/libloaderapi"
+{% end %}
 
 module TreeSitter
   class Repository
@@ -47,6 +50,8 @@ module TreeSitter
     def self.load_shared_object(language_name : String, language_path : Path) : LibTreeSitter::TSLanguage*
       file_extension = {% if flag?(:darwin) %}
                          "dylib"
+                       {% elsif flag?(:win32) %}
+                         "dll"
                        {% else %}
                          "so"
                        {% end %}
@@ -55,10 +60,18 @@ module TreeSitter
 
       raise Error.new("#{so_path} doesn't exists. Create it using tree-sitter CLI.") unless File.exists?(so_path)
 
-      handle = LibC.dlopen(so_path.to_s, LibC::RTLD_LAZY | LibC::RTLD_LOCAL)
+      handle = {% if flag?(:win32) %}
+                 LibC.LoadLibraryExW(so_path.to_s.to_utf16.to_unsafe, nil, 0)
+               {% else %}
+                 LibC.dlopen(so_path.to_s, LibC::RTLD_LAZY | LibC::RTLD_LOCAL)
+               {% end %}
       raise Error.new("Can't load language #{language_name}. #{so_path} was not found.") if handle.null?
 
-      ptr = LibC.dlsym(handle, "tree_sitter_#{language_name}")
+      ptr = {% if flag?(:win32) %}
+              LibC.GetProcAddress(handle, "tree_sitter_#{language_name}")
+            {% else %}
+              LibC.dlsym(handle, "tree_sitter_#{language_name}")
+            {% end %}
       raise Error.new("Can't find symbol tree_sitter_#{language_name} at #{so_path}.") unless ptr
 
       Proc(LibTreeSitter::TSLanguage*).new(ptr, Pointer(Void).null).call
