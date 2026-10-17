@@ -10,10 +10,26 @@ module TreeSitter
   struct Node
     @node : LibTreeSitter::TSNode
     @@string_pool = StringPool.new
+    @@string_pool_mutex = Mutex.new
 
     # :nodoc:
     def self.string_pool : StringPool
       @@string_pool
+    end
+
+    # :nodoc:
+    def self.intern(ptr : UInt8*, length : Int) : String
+      @@string_pool_mutex.synchronize { @@string_pool.get(ptr, length) }
+    end
+
+    # :nodoc:
+    def self.intern(slice : Bytes) : String
+      @@string_pool_mutex.synchronize { @@string_pool.get(slice) }
+    end
+
+    # :nodoc:
+    def self.intern(value : String) : String
+      @@string_pool_mutex.synchronize { @@string_pool.get(value) }
     end
 
     # :nodoc:
@@ -183,7 +199,7 @@ module TreeSitter
     # Get the node's type as a String.
     def type : String
       cstr = LibTreeSitter.ts_node_type(to_unsafe)
-      @@string_pool.get(cstr, LibC.strlen(cstr))
+      Node.intern(cstr, LibC.strlen(cstr))
     end
 
     # Get the node's start byte.
@@ -283,14 +299,14 @@ module TreeSitter
     def field_name_for_child(child_index : UInt32) : String?
       ptr = LibTreeSitter.ts_node_field_name_for_child(self, child_index)
       return if ptr.null?
-      @@string_pool.get(ptr, LibC.strlen(ptr))
+      Node.intern(ptr, LibC.strlen(ptr))
     end
 
     # Get the field name of this node's named child at the given index.
     def field_name_for_named_child(named_child_index : UInt32) : String?
       ptr = LibTreeSitter.ts_node_field_name_for_named_child(self, named_child_index)
       return if ptr.null?
-      @@string_pool.get(ptr, LibC.strlen(ptr))
+      Node.intern(ptr, LibC.strlen(ptr))
     end
 
     # Get the smallest node within this node that spans the given byte range.
@@ -385,7 +401,7 @@ module TreeSitter
     # Get the node's symbol name as it appears in the grammar ignoring aliases.
     def grammar_name : String
       ptr = LibTreeSitter.ts_node_grammar_type(to_unsafe)
-      @@string_pool.get(ptr, LibC.strlen(ptr))
+      Node.intern(ptr, LibC.strlen(ptr))
     end
 
     # Get an S-expression representing the node as a string.
@@ -400,7 +416,7 @@ module TreeSitter
       start_pos = start_byte
       end_pos = end_byte
       slice = source.byte_slice(start_pos, end_pos - start_pos)
-      @@string_pool.get(slice)
+      Node.intern(slice)
     end
 
     # Get the UTF-16 code units covered by this node.
@@ -556,7 +572,7 @@ module TreeSitter
       ptr = LibTreeSitter.ts_tree_cursor_current_field_name(pointerof(@cursor))
       return if ptr.null?
       # Access the string pool through a class method
-      Node.string_pool.get(ptr, LibC.strlen(ptr))
+      Node.intern(ptr, LibC.strlen(ptr))
     end
 
     # Get the field id of the cursor's current node

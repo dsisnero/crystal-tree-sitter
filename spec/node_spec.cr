@@ -1,6 +1,32 @@
 require "./spec_helper"
 
 describe TreeSitter::Node do
+  it "interns node strings safely from parallel parser workers" do
+    workers = 16
+    iterations = 200
+    done = Channel(Exception?).new(workers)
+    context = Fiber::ExecutionContext::Parallel.new("node-string-pool-spec", workers)
+
+    workers.times do
+      context.spawn do
+        iterations.times do
+          source = %({"value": "worker"})
+          parser = TreeSitter::Parser.new("json")
+          tree = parser.parse(source).not_nil!
+          root = tree.root_node
+          root.type.should eq("document")
+          root.text(source).should eq(source)
+        end
+        done.send(nil)
+      rescue error
+        done.send(error)
+      end
+    end
+
+    errors = Array(Exception?).new(workers) { done.receive }.compact
+    errors.should be_empty
+  end
+
   it "can get node start/end points" do
     root_node = parse_json("[1,\n null]").root_node
     array_node = root_node.named_child(0).not_nil!

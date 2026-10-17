@@ -89,16 +89,15 @@ def generate_module(parser : Parser)
     class #{parser.title}Language < Language
       def initialize
         @lang = LibTreeSitter#{parser.title}.tree_sitter_#{parser.name}
-        Language.loaded_languages[@lang] = self
       end
 
       def self.new
         ptr = LibTreeSitter#{parser.title}.tree_sitter_#{parser.name}
-        Language.loaded_languages[ptr] ||= begin
+        Language.fetch_or_load(ptr) do
           instance = #{parser.title}Language.allocate
           instance.initialize
           instance
-        end
+        end.as(#{parser.title}Language)
       end
 
       def name
